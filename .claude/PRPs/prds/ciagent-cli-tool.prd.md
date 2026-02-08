@@ -17,6 +17,8 @@ A stateless CLI tool (`cia`) that runs in slim Bun containers with <50ms startup
 
 **Why this approach**: Bun's <50ms startup + stateless design keeps overhead under 100ms (vs platform agents with 500ms+ initialization). Provider abstraction prevents vendor lock-in. Streaming reduces memory pressure on constrained devices. Shell script integration (not TypeScript) makes it approachable for DevOps workflows.
 
+**Related spec**: `docs/cia-cli-spec.md` (extended structured runner details: strict mode, schema enforcement, output envelopes).
+
 ## Key Hypothesis
 
 We believe **a stateless CLI with <100ms overhead and multi-provider support** will **solve enterprise platform agent restrictions and inflexibility** for **DevOps engineers and solo developers**.
@@ -74,20 +76,20 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 | Priority | Capability | Rationale |
 |----------|------------|-----------|
 | Must | Codex SDK integration with streaming | POC already works; core provider for testing |
-| Must | Vercel AI SDK Azure OpenAI integration | Enterprise-friendly, streaming native, modern API |
+| Must | Claude SDK integration with streaming | Native Claude API support |
+| Must | Vercel AI SDK integration (Azure, OpenAI, GitHub Copilot) | Enterprise-friendly, streaming native, modern API |
 | Must | Context from files (`--context file.py`) | Essential for code analysis use cases |
 | Must | Context from folders (`--context src/`) | Batch file context for large codebases |
 | Must | Context from URLs (`--context https://github.com/...`) | GitHub PR/issue integration differentiator |
 | Must | Prompt piping (`echo "..." \| cia run`) | Stateless, composable with shell scripts |
+| Must | Lazy and strict mode according to `docs/cia-cli-spec.md` | Quick prompting and strictly formatted outputs |
 | Must | Model listing (`cia models`) | Discoverability across providers |
 | Must | Streaming output | Memory efficiency + real-time feedback |
 | Should | MCP (Model Context Protocol) support | Extends capabilities without custom code |
 | Should | Skills integration | Reusable prompt patterns for common tasks |
 | Should | Tool calling/function execution | Unlock agentic workflows |
-| Could | Claude SDK integration | Wait for v2; Codex + Azure cover MVP |
 | Could | Custom system prompts | Defer until user feedback shows need |
 | Won't | Session persistence | Explicitly stateless; no conversation history |
-| Won't | Configuration file | Env vars only; no `.ciarc` complexity |
 
 ### MVP Scope
 
@@ -96,13 +98,17 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 1. **Install & Run**:
    ```bash
    bun install -g ciagent
-   echo "Analyze this code" | cia run --context app.ts
+   echo "Analyze this code" | cia run
    ```
 
 2. **Provider Selection**:
    ```bash
-   CIA_PROVIDER=codex cia run "..."
-   CIA_PROVIDER=azure cia run "..."
+   cia run --provider codex --model gpt-5.2 "..."
+   cia run --provider claude --model claude-4-sonnet "..."
+   cia run --provider anthropic --model claude-4.5-sonnet "..."
+   cia run --provider azure --model gpt-5.2 "..."
+   cia run --provider openai --model gpt-5.2 "..."
+   cia run --provider github-copilot --model claude-sonnet-4 "..."
    ```
 
 3. **GitHub PR Context**:
@@ -112,7 +118,7 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 
 4. **Model Discovery**:
    ```bash
-   cia models  # Lists: codex-v1, gpt-4o (azure), etc.
+   cia models  # Lists: codex/codex-v1, claude/claude-3-sonnet, azure/gpt-5.2, github-copilot/claude-sonnet-4, openai/gpt-5.2, etc.
    ```
 
 **Success signal**: DevOps engineer copies one of above commands into GitHub workflow, it runs in <150ms overhead, streams results.
@@ -155,7 +161,7 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 **Architecture Notes**
 
 1. **Runtime**: Bun (not Node.js) for <50ms cold start on Raspberry Pi 3
-2. **CLI Framework**: Commander.js or yargs (minimal overhead, <5ms initialization)
+2. **CLI Framework**: Commander.js (minimal overhead, <5ms initialization)
 3. **Provider Abstraction**: Extend POC's `IAssistantClient` interface:
    ```typescript
    interface IAssistantClient {
@@ -168,10 +174,9 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
    - Folders: Recursive walk with `.gitignore` respect
    - URLs: GitHub API fetch (with caching for rate limits)
 5. **Streaming**: AsyncGenerator pattern from POC, write chunks to stdout
-6. **Config**: Environment variables only (no config files):
-   - `CIA_PROVIDER` (default: `codex`)
-   - `CODEX_API_KEY`, `AZURE_OPENAI_KEY`, `AZURE_RESOURCE_NAME`
-   - `CIA_TIMEOUT` (default: 30s)
+6. **Config**: Environment variables with optional JSON configuration:
+   - Primary: `CODEX_API_KEY`, `CLAUDE_API_KEY`, `AZURE_OPENAI_KEY`, `AZURE_RESOURCE_NAME`, `OPENAI_API_KEY`, `GITHUB_TOKEN`
+   - Optional: `.cia/config.json` for advanced provider configurations
 7. **Testing**: Vitest with mock providers for unit tests; real API integration tests gated behind env vars
 8. **Packaging**: Single Bun binary + slim Docker image (<50MB)
 
@@ -184,6 +189,9 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 | GitHub API rate limits | HIGH | Cache responses; document personal access token setup |
 | MCP/Skills overhead on Pi 3 | MEDIUM | Make optional; lazy-load implementations |
 | URL context parsing complexity | MEDIUM | Start with GitHub API only; defer GitLab/Bitbucket |
+
+**Testing strategy (all phases)**: Maintain a modern test pyramid with approximate distribution of 70% unit, 20% integration, 10% end-to-end tests. Every phase should add or refine tests in its layer to keep the distribution balanced.
+We purster a test coverage of >=40% in early stages of the project.
 
 ---
 
@@ -215,8 +223,11 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 - **Goal**: Runnable `cia` command with help text and version
 - **Scope**: 
   - Bun project setup with TypeScript
+  - Template-grade project scaffolding (Makefile + CI workflow)
+  - Vitest setup with coverage gate (>=40%)
   - Commander.js for `run`, `models` commands
-  - Environment variable parsing (`CIA_PROVIDER`, API keys)
+  - Environment variable parsing (API keys)
+  - Mode + format parsing (`--mode` lazy/strict, `--format` default/json) with strict+schema validation
   - Exit codes (0 = success, 1 = error)
 - **Success signal**: `cia --help` and `cia --version` work; `cia run "test"` fails gracefully with "No provider configured"
 
@@ -277,10 +288,10 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 - **Goal**: Extend capabilities without hardcoding features
 - **Scope**:
   - MCP: Load MCP servers from env var or `.cia/mcp.json`
-  - Skills: Load skill definitions from `.cia/skills/` (prompt templates)
+  - Skills: Load skill definitions from `.cia/skills/` (reusable prompt patterns)
   - Tools: Function calling support via provider SDKs
   - All optional, lazy-loaded
-- **Success signal**: `cia run --skill code-review "Review PR"` uses predefined prompt template
+- **Success signal**: `cia run --skill code-review "Review PR"` uses predefined skill pattern
 
 **Phase 9: Testing & Benchmarks**
 - **Goal**: Confidence in correctness and performance
@@ -290,6 +301,7 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
   - Real API integration tests (gated behind `RUN_INTEGRATION_TESTS=1`)
   - Benchmark suite: measure startup time on Bun vs Node, Pi 3 vs x86
   - Target: <100ms overhead, <50MB memory
+- **Testing strategy**: Reinforce the global test pyramid targets (70% unit, 20% integration, 10% end-to-end) and cover critical CLI flows end-to-end.
 - **Success signal**: All tests pass; benchmark shows <100ms on Pi 3 emulator
 
 **Phase 10: Packaging & Docs**
