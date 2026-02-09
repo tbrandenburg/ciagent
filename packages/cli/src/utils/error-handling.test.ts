@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
 import { ExitCode } from './exit-codes';
 import {
   createError,
@@ -9,10 +9,10 @@ import {
 } from './error-handling';
 
 describe('Error Handling', () => {
-  let consoleErrorSpy: jest.SpyInstance;
+  let consoleErrorSpy: ReturnType<typeof spyOn>;
 
   beforeEach(() => {
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
