@@ -206,7 +206,7 @@ We purster a test coverage of >=40% in early stages of the project.
 
 | # | Phase | Description | Status | Parallel | Depends | PRP Plan |
 |---|-------|-------------|--------|----------|---------|----------|
-| 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | pending | - | - | - |
+| 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | in-progress | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | pending | - | 1 | - |
 | 3 | Codex integration | Implement Codex SDK client, streaming, auth | pending | with 4 | 2 | - |
 | 4 | Azure OpenAI integration | Implement Vercel AI SDK Azure provider, streaming | pending | with 3 | 2 | - |
@@ -225,7 +225,7 @@ We purster a test coverage of >=40% in early stages of the project.
   - Bun project setup with TypeScript
   - Template-grade project scaffolding (Makefile + CI workflow)
   - Vitest setup with coverage gate (>=40%)
-  - Commander.js for `run`, `models` commands
+  - Commander.js for `run`, `models` commands (see details: `docs/cia-cli-spec.md`)
   - Environment variable parsing (API keys)
   - Mode + format parsing (`--mode` lazy/strict, `--format` default/json) with strict+schema validation
   - Exit codes (0 = success, 1 = error)
