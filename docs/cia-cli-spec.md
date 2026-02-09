@@ -5,6 +5,7 @@
 - Executes an LLM task.
 - Enforces JSON Schema on output when provided.
 - Emits structured output with metadata.
+- v1 returns a single response (non-streaming); streaming is deferred to v2+.
 
 ## Command
 - `cia run`
@@ -195,6 +196,7 @@ Implementation note:
 - `--format` (`default|json`, default: `default`)
 - `--output-file` (default: `result.json`)
 - `--output-format` (`json|yaml|md|text`, default: inferred from extension)
+ - v1 outputs a complete response; chunked streaming output is out of scope.
 
 ## Input JSON Format
 ```json
