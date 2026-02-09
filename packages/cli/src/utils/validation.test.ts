@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'bun:test';
-import { 
-  validateConfig, 
-  validateProvider, 
-  validateModel, 
-  validateExecutionRequirements 
+import {
+  validateConfig,
+  validateProvider,
+  validateModel,
+  validateExecutionRequirements,
 } from './validation.js';
 import { CIAConfig } from '../config/loader.js';
 
@@ -40,13 +40,15 @@ describe('Input Validation', () => {
       const strictConfig: CIAConfig = { mode: 'strict' };
       const result = validateConfig(strictConfig);
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Strict mode requires either --schema-file or --schema-inline to be specified.');
+      expect(result.errors).toContain(
+        'Strict mode requires either --schema-file or --schema-inline to be specified.'
+      );
     });
 
     it('should accept schema-file in strict mode', () => {
-      const strictConfig: CIAConfig = { 
-        mode: 'strict', 
-        'schema-file': '/nonexistent/file.json' // File existence checked separately
+      const strictConfig: CIAConfig = {
+        mode: 'strict',
+        'schema-file': '/nonexistent/file.json', // File existence checked separately
       };
       const result = validateConfig(strictConfig);
       // Should have file not found error, but not the strict mode error
@@ -54,9 +56,9 @@ describe('Input Validation', () => {
     });
 
     it('should accept schema-inline in strict mode', () => {
-      const strictConfig: CIAConfig = { 
-        mode: 'strict', 
-        'schema-inline': '{"type": "object"}' 
+      const strictConfig: CIAConfig = {
+        mode: 'strict',
+        'schema-inline': '{"type": "object"}',
       };
       const result = validateConfig(strictConfig);
       // Should pass strict mode validation
@@ -64,8 +66,8 @@ describe('Input Validation', () => {
     });
 
     it('should validate JSON in schema-inline', () => {
-      const invalidSchemaConfig: CIAConfig = { 
-        'schema-inline': '{ invalid json }' 
+      const invalidSchemaConfig: CIAConfig = {
+        'schema-inline': '{ invalid json }',
       };
       const result = validateConfig(invalidSchemaConfig);
       expect(result.isValid).toBe(false);
@@ -94,7 +96,9 @@ describe('Input Validation', () => {
       const invalidConfig: CIAConfig = { 'log-level': 'INVALID' };
       const invalidResult = validateConfig(invalidConfig);
       expect(invalidResult.isValid).toBe(false);
-      expect(invalidResult.errors).toContain('Invalid log-level: INVALID. Must be one of: DEBUG, INFO, WARN, ERROR.');
+      expect(invalidResult.errors).toContain(
+        'Invalid log-level: INVALID. Must be one of: DEBUG, INFO, WARN, ERROR.'
+      );
     });
   });
 
@@ -110,7 +114,9 @@ describe('Input Validation', () => {
     it('should reject invalid providers', () => {
       const result = validateProvider('invalid-provider');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Invalid provider: invalid-provider. Must be one of: azure, openai, anthropic, google, local.');
+      expect(result.errors).toContain(
+        'Invalid provider: invalid-provider. Must be one of: azure, openai, anthropic, google, local.'
+      );
     });
 
     it('should require provider', () => {
@@ -132,7 +138,9 @@ describe('Input Validation', () => {
     it('should reject invalid model name formats', () => {
       const result = validateModel('invalid model name!');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Invalid model name format: invalid model name!. Must contain only alphanumeric characters, dashes, and dots.');
+      expect(result.errors).toContain(
+        'Invalid model name format: invalid model name!. Must contain only alphanumeric characters, dashes, and dots.'
+      );
     });
 
     it('should require model', () => {
@@ -146,7 +154,7 @@ describe('Input Validation', () => {
     it('should validate complete execution config', () => {
       const config: CIAConfig = {
         provider: 'azure',
-        model: 'gpt-4'
+        model: 'gpt-4',
       };
       const result = validateExecutionRequirements(config);
       expect(result.isValid).toBe(true);
@@ -154,7 +162,7 @@ describe('Input Validation', () => {
 
     it('should reject missing provider', () => {
       const config: CIAConfig = {
-        model: 'gpt-4'
+        model: 'gpt-4',
       };
       const result = validateExecutionRequirements(config);
       expect(result.isValid).toBe(false);
@@ -163,11 +171,13 @@ describe('Input Validation', () => {
 
     it('should reject missing model', () => {
       const config: CIAConfig = {
-        provider: 'azure'
+        provider: 'azure',
       };
       const result = validateExecutionRequirements(config);
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Model is required for execution. Use --model or set CIA_MODEL environment variable.');
+      expect(result.errors).toContain(
+        'Model is required for execution. Use --model or set CIA_MODEL environment variable.'
+      );
     });
   });
 });

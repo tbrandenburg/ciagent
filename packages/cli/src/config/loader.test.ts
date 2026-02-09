@@ -13,20 +13,36 @@ describe('Configuration Loader', () => {
   beforeEach(() => {
     // Set test HOME directory
     process.env.HOME = testUserHome;
-    
+
     // Clean up test directories
-    if (existsSync(testUserConfigFile)) unlinkSync(testUserConfigFile);
-    if (existsSync(testUserConfigDir)) rmSync(testUserConfigDir, { recursive: true, force: true });
-    if (existsSync(repoConfigFile)) unlinkSync(repoConfigFile);
-    if (existsSync(repoConfigDir)) rmSync(repoConfigDir, { recursive: true, force: true });
+    if (existsSync(testUserConfigFile)) {
+      unlinkSync(testUserConfigFile);
+    }
+    if (existsSync(testUserConfigDir)) {
+      rmSync(testUserConfigDir, { recursive: true, force: true });
+    }
+    if (existsSync(repoConfigFile)) {
+      unlinkSync(repoConfigFile);
+    }
+    if (existsSync(repoConfigDir)) {
+      rmSync(repoConfigDir, { recursive: true, force: true });
+    }
   });
 
   afterEach(() => {
     // Clean up test directories
-    if (existsSync(testUserConfigFile)) unlinkSync(testUserConfigFile);
-    if (existsSync(testUserConfigDir)) rmSync(testUserConfigDir, { recursive: true, force: true });
-    if (existsSync(repoConfigFile)) unlinkSync(repoConfigFile);
-    if (existsSync(repoConfigDir)) rmSync(repoConfigDir, { recursive: true, force: true });
+    if (existsSync(testUserConfigFile)) {
+      unlinkSync(testUserConfigFile);
+    }
+    if (existsSync(testUserConfigDir)) {
+      rmSync(testUserConfigDir, { recursive: true, force: true });
+    }
+    if (existsSync(repoConfigFile)) {
+      unlinkSync(repoConfigFile);
+    }
+    if (existsSync(repoConfigDir)) {
+      rmSync(repoConfigDir, { recursive: true, force: true });
+    }
   });
 
   describe('Configuration Hierarchy', () => {
@@ -39,16 +55,19 @@ describe('Configuration Loader', () => {
     it('should merge configurations correctly', () => {
       // Set up user config
       mkdirSync(testUserConfigDir, { recursive: true });
-      writeFileSync(testUserConfigFile, JSON.stringify({
-        provider: 'azure',
-        model: 'gpt-3.5-turbo',
-        timeout: 30
-      }));
+      writeFileSync(
+        testUserConfigFile,
+        JSON.stringify({
+          provider: 'azure',
+          model: 'gpt-3.5-turbo',
+          timeout: 30,
+        })
+      );
 
       // CLI args should override user config
-      const config = loadConfig({ 
+      const config = loadConfig({
         provider: 'openai', // Should override azure
-        'log-level': 'DEBUG' // Should be added
+        'log-level': 'DEBUG', // Should be added
       });
 
       expect(config.provider).toBe('openai'); // CLI override
@@ -76,10 +95,16 @@ describe('Configuration Loader', () => {
       expect(config.model).toBe('gemini-pro');
 
       // Restore environment
-      if (originalProvider) process.env.CIA_PROVIDER = originalProvider;
-      else delete process.env.CIA_PROVIDER;
-      if (originalModel) process.env.CIA_MODEL = originalModel;
-      else delete process.env.CIA_MODEL;
+      if (originalProvider) {
+        process.env.CIA_PROVIDER = originalProvider;
+      } else {
+        delete process.env.CIA_PROVIDER;
+      }
+      if (originalModel) {
+        process.env.CIA_MODEL = originalModel;
+      } else {
+        delete process.env.CIA_MODEL;
+      }
     });
   });
 
@@ -87,7 +112,7 @@ describe('Configuration Loader', () => {
     it('should concatenate context arrays', () => {
       const userConfig = { context: ['file1.txt', 'file2.txt'] };
       const cliConfig = { context: ['file3.txt'] };
-      
+
       mkdirSync(testUserConfigDir, { recursive: true });
       writeFileSync(testUserConfigFile, JSON.stringify(userConfig));
 
@@ -104,7 +129,7 @@ describe('Configuration Loader', () => {
       // Config loader doesn't set defaults - that's done in CLI argument parsing
       expect(typeof config).toBe('object');
     });
-    
+
     // NOTE: Cannot test malformed JSON handling because it calls process.exit()
     // This is correct CLI behavior but not testable in unit tests
   });

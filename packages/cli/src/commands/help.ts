@@ -17,7 +17,9 @@ export function printHelpText(): void {
   console.log('  -v, --version        Show version information');
   console.log('');
   console.log('CORE OPTIONS:');
-  console.log('  -p, --provider       AI provider (azure|openai|anthropic|google|local) [default: azure]');
+  console.log(
+    '  -p, --provider       AI provider (azure|openai|anthropic|google|local) [default: azure]'
+  );
   console.log('  -m, --model          Model name (e.g., gpt-4, claude-3-sonnet)');
   console.log('  --mode               Execution mode (lazy|strict) [default: lazy]');
   console.log('  --format             Output format (default|json) [default: default]');

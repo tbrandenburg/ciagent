@@ -31,22 +31,22 @@ export interface CIAConfig {
 export function loadConfig(cliArgs: Partial<CIAConfig> = {}): CIAConfig {
   // Start with environment variables (lowest priority)
   let config = loadFromEnv();
-  
+
   // Merge user config (~/.cia/config.json)
   const userConfig = loadUserConfig();
   if (userConfig) {
     config = mergeConfigs(config, userConfig);
   }
-  
-  // Merge repo config (.cia/config.json)  
+
+  // Merge repo config (.cia/config.json)
   const repoConfig = loadRepoConfig();
   if (repoConfig) {
     config = mergeConfigs(config, repoConfig);
   }
-  
+
   // Merge CLI arguments (highest priority)
   config = mergeConfigs(config, cliArgs);
-  
+
   return config;
 }
 
@@ -63,7 +63,7 @@ function loadFromEnv(): Partial<CIAConfig> {
       process.exit(ExitCode.AUTH_CONFIG);
     }
   }
-  
+
   return {
     provider: process.env.CIA_PROVIDER,
     model: process.env.CIA_MODEL,
@@ -102,7 +102,7 @@ function loadConfigFile(filePath: string): Partial<CIAConfig> | null {
   if (!existsSync(filePath)) {
     return null;
   }
-  
+
   try {
     const content = readFileSync(filePath, 'utf8');
     return JSON.parse(content) as Partial<CIAConfig>;
@@ -118,7 +118,7 @@ function loadConfigFile(filePath: string): Partial<CIAConfig> | null {
  */
 function mergeConfigs(base: Partial<CIAConfig>, override: Partial<CIAConfig>): CIAConfig {
   const merged = { ...base };
-  
+
   for (const [key, value] of Object.entries(override)) {
     if (value !== undefined && value !== null && value !== '') {
       if (key === 'context' && Array.isArray(value)) {
@@ -129,6 +129,6 @@ function mergeConfigs(base: Partial<CIAConfig>, override: Partial<CIAConfig>): C
       }
     }
   }
-  
+
   return merged as CIAConfig;
 }

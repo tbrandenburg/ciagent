@@ -14,9 +14,11 @@ describe('Help Command', () => {
 
   it('should print help text with all sections', () => {
     printHelpText();
-    
+
     // Check that main sections are present
-    expect(consoleSpy).toHaveBeenCalledWith('CIA - Vendor-neutral AI agent CLI tool for CI/CD pipelines');
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'CIA - Vendor-neutral AI agent CLI tool for CI/CD pipelines'
+    );
     expect(consoleSpy).toHaveBeenCalledWith('USAGE:');
     expect(consoleSpy).toHaveBeenCalledWith('COMMANDS:');
     expect(consoleSpy).toHaveBeenCalledWith('OPTIONS:');
@@ -26,7 +28,7 @@ describe('Help Command', () => {
 
   it('should include all CLI spec options', () => {
     printHelpText();
-    
+
     // Check key CLI spec options are documented
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
     expect(allOutput).toContain('--provider');
@@ -41,21 +43,21 @@ describe('Help Command', () => {
 
   it('should include provider options', () => {
     printHelpText();
-    
+
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
     expect(allOutput).toContain('azure|openai|anthropic|google|local');
   });
 
   it('should include mode options', () => {
     printHelpText();
-    
+
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
     expect(allOutput).toContain('lazy|strict');
   });
 
   it('should include practical examples', () => {
     printHelpText();
-    
+
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
     expect(allOutput).toContain('cia run "Explain how CI/CD works"');
     expect(allOutput).toContain('--schema-file user.schema.json');
@@ -64,7 +66,7 @@ describe('Help Command', () => {
 
   it('should document exit codes', () => {
     printHelpText();
-    
+
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
     expect(allOutput).toContain('0  Success');
     expect(allOutput).toContain('1  Input validation error');
