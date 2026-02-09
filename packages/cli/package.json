@@ -1,0 +1,30 @@
+{
+  "name": "@ciagent/cli",
+  "version": "0.1.0",
+  "description": "CLI interface for ciagent - vendor-neutral AI agent tool",
+  "type": "module",
+  "main": "./src/cli.ts",
+  "bin": {
+    "cia": "./src/cli.ts"
+  },
+  "scripts": {
+    "type-check": "bun tsc --noEmit",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "build": "bun build --compile --minify --sourcemap --bytecode src/cli.ts --outfile ../../dist/cia"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "keywords": [
+    "cli",
+    "ai",
+    "agent",
+    "cicd"
+  ],
+  "author": "ciagent",
+  "license": "MIT"
+}
