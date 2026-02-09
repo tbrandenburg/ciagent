@@ -87,7 +87,7 @@ describe('CLI Main Function', () => {
 
     it('should validate execution requirements', async () => {
       const exitCode = await main(['run', 'test prompt']); 
-      expect(exitCode).toBe(3); // Should fail with missing model
+      expect(exitCode).toBe(1); // Should fail with missing model (INPUT_VALIDATION error)
     });
   });
 

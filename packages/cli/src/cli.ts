@@ -4,6 +4,7 @@ import { parseArgs } from 'util';
 import { ExitCode } from './utils/exit-codes.js';
 import { loadConfig } from './config/loader.js';
 import { validateConfig, validateExecutionRequirements } from './utils/validation.js';
+import { CommonErrors, printError, handleUnexpectedError } from './utils/error-handling.js';
 
 export async function main(args: string[] = process.argv.slice(2)): Promise<number> {
   let parsedArgs: any;
@@ -38,10 +39,13 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
       strict: false,
     });
   } catch (error) {
-    const err = error as Error;
-    console.error(`Error parsing arguments: ${err.message}`);
+    const cliError = CommonErrors.invalidArgument(
+      'command line arguments',
+      'valid options and format'
+    );
+    printError(cliError);
     await printUsage();
-    return ExitCode.INPUT_VALIDATION;
+    return cliError.code;
   }
   
   const { values, positionals } = parsedArgs;
@@ -84,17 +88,21 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
   // Validate configuration
   const configValidation = validateConfig(config);
   if (!configValidation.isValid) {
-    console.error('Configuration validation errors:');
-    configValidation.errors.forEach(error => console.error(`  ${error}`));
-    return ExitCode.INPUT_VALIDATION;
+    const error = CommonErrors.invalidConfig(
+      'configuration validation',
+      configValidation.errors.join(', ')
+    );
+    printError(error);
+    return error.code;
   }
   
   // Handle commands
   const command = positionals[0];
   
   if (!command) {
-    console.error('No command specified. Use --help for usage information.');
-    return ExitCode.INPUT_VALIDATION;
+    const error = CommonErrors.missingCommand();
+    printError(error);
+    return error.code;
   }
   
   switch (command.toLowerCase()) {
@@ -102,10 +110,9 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
       return await handleRunCommand(positionals.slice(1), config);
       
     default:
-      console.error(`Unknown command: ${command}`);
-      console.error('Available commands: run');
-      console.error('Use --help for more information.');
-      return ExitCode.INPUT_VALIDATION;
+      const error = CommonErrors.unknownCommand(command);
+      printError(error);
+      return error.code;
   }
 }
 
@@ -116,16 +123,19 @@ async function handleRunCommand(_args: string[], config: any): Promise<number> {
   // Validate execution requirements
   const execValidation = validateExecutionRequirements(config);
   if (!execValidation.isValid) {
-    console.error('Execution validation errors:');
-    execValidation.errors.forEach(error => console.error(`  ${error}`));
-    return ExitCode.AUTH_CONFIG;
+    const error = CommonErrors.invalidConfig(
+      'execution requirements',
+      execValidation.errors.join(', ')
+    );
+    printError(error);
+    return error.code;
   }
   
   // For Phase 1, fail gracefully with "No provider configured"
   // This will be implemented in later phases
-  console.error('Error: No provider configured. Provider integrations will be available in Phase 2+.');
-  console.error('This CLI scaffold is working correctly - the error is expected in Phase 1.');
-  return ExitCode.AUTH_CONFIG;
+  const error = CommonErrors.missingProvider();
+  printError(error);
+  return error.code;
 }
 
 /**
@@ -169,7 +179,8 @@ if (import.meta.main) {
   main().then((exitCode) => {
     process.exit(exitCode);
   }).catch((error) => {
-    console.error('Unexpected error:', error);
-    process.exit(ExitCode.LLM_EXECUTION);
+    const cliError = handleUnexpectedError(error);
+    printError(cliError);
+    process.exit(cliError.code);
   });
 }
