@@ -212,9 +212,9 @@ We purster a test coverage of >=40% in early stages of the project.
 | # | Phase | Description | Status | Parallel | Depends | PRP Plan |
 |---|-------|-------------|--------|----------|---------|----------|
 | 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
-| 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | pending | - | 1 | - |
-| 3 | Codex integration | Implement Codex SDK client, auth | pending | with 4 | 2 | - |
-| 4 | Azure OpenAI integration | Implement Vercel AI SDK Azure provider | pending | with 3 | 2 | - |
+| 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | complete | - | 1 | - |
+| 3 | Provider reliability | Contract tests, error normalization, retry/backoff | pending | - | 2 | - |
+| 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3 | - |
 | 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3, 4 | - |
 | 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3, 4 | - |
 | 7 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 6 | 3, 4 | - |
@@ -248,22 +248,23 @@ We purster a test coverage of >=40% in early stages of the project.
   - Message types: `MessageChunk` with `assistant`, `tool`, `thinking`, `system`
 - **Success signal**: Mock client passes interface contract in Vitest tests
 
-**Phase 3: Codex Integration**
-- **Goal**: Working Codex SDK client
+**Phase 3: Provider Reliability**
+- **Goal**: Harden provider behavior now that Codex + Claude share `IAssistantChat`
 - **Scope**:
-  - Port `CodexClient` from POC (`dev/poc-codex-extraction/codex.ts`)
-  - Auth from `CODEX_API_KEY` or `~/.codex/auth.json`
-  - Non-streaming response mapped into AsyncGenerator
-  - Session ID handling (stateless, ignore resume)
-- **Success signal**: `CIA_PROVIDER=codex cia run "Hello"` returns response from Codex
+  - Shared chat chunk contract tests for all providers (assistant/system/tool/error/result)
+  - Normalize provider errors into consistent CLI errors and exit codes
+  - Retry + backoff wiring for provider calls (respect `--retries`, `--retry-backoff`, `--timeout`)
+  - Ensure missing auth/config fails fast with actionable messages
+- **Success signal**: Contract tests pass; retries and timeouts behave consistently across codex/claude
 
 **Phase 4: Azure OpenAI Integration**
-- **Goal**: Vercel AI SDK Azure provider
+- **Goal**: Initial @ai-sdk/azure integration via Vercel AI SDK
 - **Scope**:
   - Install `ai` + `@ai-sdk/azure`
   - Implement `AzureClient` using `generateText()` from Vercel SDK
   - Auth from `AZURE_OPENAI_KEY` + `AZURE_RESOURCE_NAME`
   - Convert non-streaming response to `MessageChunk` AsyncGenerator
+  - Add provider contract tests for Azure (reuse Phase 3 harness)
 - **Success signal**: `CIA_PROVIDER=azure cia run "Hello"` returns response from Azure OpenAI
 
 **Phase 5: Context Handling**
