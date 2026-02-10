@@ -14,7 +14,8 @@
     "test:coverage": "bun test --coverage",
     "build": "bun run build:cli",
     "build:cli": "cd packages/cli && bun build --compile --minify --sourcemap --bytecode src/cli.ts --outfile ../../dist/cia",
-    "dev:cli": "bun packages/cli/src/cli.ts"
+    "dev:cli": "bun packages/cli/src/cli.ts",
+    "ci": "bun run lint && bun run type-check && bun run test && bun run build"
   },
   "engines": {
     "bun": ">=1.0.0"

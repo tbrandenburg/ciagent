@@ -1,4 +1,4 @@
-import { ExitCode, EXIT_CODE_DESCRIPTIONS } from './exit-codes.js';
+import { ExitCode, EXIT_CODE_DESCRIPTIONS } from '../../utils/exit-codes.js';
 
 export interface CliError {
   code: ExitCode;
@@ -7,9 +7,6 @@ export interface CliError {
   suggestion?: string;
 }
 
-/**
- * Creates a formatted error with exit code, message, and optional suggestion
- */
 export function createError(
   code: ExitCode,
   message: string,
@@ -19,31 +16,24 @@ export function createError(
   return { code, message, details, suggestion };
 }
 
-/**
- * Formats and prints an error to stderr with consistent styling
- */
 export function printError(error: CliError): void {
   console.error(`\n❌ Error: ${error.message}`);
-  
+
   if (error.details) {
     console.error(`   ${error.details}`);
   }
-  
+
   if (error.suggestion) {
     console.error(`💡 Suggestion: ${error.suggestion}`);
   }
-  
+
   if (error.code !== ExitCode.SUCCESS) {
     console.error(`   Exit code: ${error.code} (${EXIT_CODE_DESCRIPTIONS[error.code]})`);
   }
   console.error('');
 }
 
-/**
- * Common error patterns for better user experience
- */
 export const CommonErrors = {
-  // Input validation errors
   invalidArgument: (arg: string, expected: string): CliError =>
     createError(
       ExitCode.INPUT_VALIDATION,
@@ -56,25 +46,32 @@ export const CommonErrors = {
     createError(
       ExitCode.INPUT_VALIDATION,
       'No command specified',
-      'Available commands: run',
-      'Try: cia run "your prompt here" --provider azure'
+      'Available commands: run, models',
+      'Try: cia run "your prompt here"'
     ),
 
   unknownCommand: (command: string): CliError =>
     createError(
       ExitCode.INPUT_VALIDATION,
       `Unknown command: ${command}`,
-      'Available commands: run',
+      'Available commands: run, models',
       'Use --help to see all available options'
     ),
 
-  // Configuration errors
   missingProvider: (): CliError =>
     createError(
       ExitCode.AUTH_CONFIG,
-      'No provider configured',
-      'Provider integrations are not yet implemented in Phase 1',
-      'This error is expected - the CLI scaffold is working correctly'
+      'Provider is required',
+      'Only provider=codex is supported',
+      'Set --provider=codex or CIA_PROVIDER=codex'
+    ),
+
+  authConfig: (details: string): CliError =>
+    createError(
+      ExitCode.AUTH_CONFIG,
+      'Authentication/configuration error',
+      details,
+      'Configure Codex auth at ~/.codex/auth.json and retry'
     ),
 
   invalidConfig: (field: string, issue: string): CliError =>
@@ -85,7 +82,6 @@ export const CommonErrors = {
       'Check your config files: ~/.cia/config.json or .cia/config.json'
     ),
 
-  // Schema validation errors
   schemaValidationFailed: (details: string): CliError =>
     createError(
       ExitCode.SCHEMA_VALIDATION,
@@ -94,7 +90,6 @@ export const CommonErrors = {
       'Check your --schema-file or --schema-inline parameter'
     ),
 
-  // Execution errors
   executionFailed: (reason: string): CliError =>
     createError(
       ExitCode.LLM_EXECUTION,
@@ -112,9 +107,6 @@ export const CommonErrors = {
     ),
 };
 
-/**
- * Utility to handle unexpected errors with consistent formatting
- */
 export function handleUnexpectedError(error: unknown): CliError {
   const message = error instanceof Error ? error.message : String(error);
   return createError(
@@ -125,10 +117,7 @@ export function handleUnexpectedError(error: unknown): CliError {
   );
 }
 
-/**
- * Exit the process with proper error reporting
- */
-export function exitWithError(error: CliError): never {
+export function exitWithError(error: CliError): void {
   printError(error);
   process.exit(error.code);
 }

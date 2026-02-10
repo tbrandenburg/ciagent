@@ -6,23 +6,24 @@ export interface ValidationResult {
   errors: string[];
 }
 
-/**
- * Validate CLI arguments and configuration per CLI spec
- */
 export function validateConfig(config: CIAConfig): ValidationResult {
   const errors: string[] = [];
+  const validProviders = ['codex', 'claude'];
 
-  // Validate mode
   if (config.mode && !['lazy', 'strict'].includes(config.mode)) {
     errors.push(`Invalid mode: ${config.mode}. Must be 'lazy' or 'strict'.`);
   }
 
-  // Validate format
   if (config.format && !['default', 'json'].includes(config.format)) {
     errors.push(`Invalid format: ${config.format}. Must be 'default' or 'json'.`);
   }
 
-  // Validate output format
+  if (config.provider && !validProviders.includes(config.provider)) {
+    errors.push(
+      `Invalid provider: ${config.provider}. Must be one of: ${validProviders.join(', ')}.`
+    );
+  }
+
   if (
     config['output-format'] &&
     !['json', 'yaml', 'md', 'text'].includes(config['output-format'])
@@ -32,7 +33,6 @@ export function validateConfig(config: CIAConfig): ValidationResult {
     );
   }
 
-  // Validate log level
   if (config['log-level']) {
     const validLogLevels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
     if (!validLogLevels.includes(config['log-level'])) {
@@ -42,14 +42,12 @@ export function validateConfig(config: CIAConfig): ValidationResult {
     }
   }
 
-  // Strict mode validation - requires schema
   if (config.mode === 'strict') {
     if (!config['schema-file'] && !config['schema-inline']) {
       errors.push('Strict mode requires either --schema-file or --schema-inline to be specified.');
     }
   }
 
-  // Validate schema file exists if specified
   if (config['schema-file']) {
     if (!existsSync(config['schema-file'])) {
       errors.push(`Schema file not found: ${config['schema-file']}`);
@@ -58,14 +56,12 @@ export function validateConfig(config: CIAConfig): ValidationResult {
     }
   }
 
-  // Validate input file exists if specified
   if (config['input-file']) {
     if (!existsSync(config['input-file'])) {
       errors.push(`Input file not found: ${config['input-file']}`);
     }
   }
 
-  // Validate schema-inline is valid JSON if specified
   if (config['schema-inline']) {
     try {
       JSON.parse(config['schema-inline']);
@@ -74,7 +70,6 @@ export function validateConfig(config: CIAConfig): ValidationResult {
     }
   }
 
-  // Validate numeric values
   if (config.timeout !== undefined) {
     if (isNaN(config.timeout) || config.timeout <= 0) {
       errors.push(`Invalid timeout: ${config.timeout}. Must be a positive number.`);
@@ -93,15 +88,13 @@ export function validateConfig(config: CIAConfig): ValidationResult {
   };
 }
 
-/**
- * Validate provider name
- */
 export function validateProvider(provider?: string): ValidationResult {
+  const validProviders = ['codex', 'claude'];
+
   if (!provider) {
     return { isValid: false, errors: ['Provider is required'] };
   }
 
-  const validProviders = ['azure', 'openai', 'anthropic', 'google', 'local'];
   if (!validProviders.includes(provider)) {
     return {
       isValid: false,
@@ -112,15 +105,11 @@ export function validateProvider(provider?: string): ValidationResult {
   return { isValid: true, errors: [] };
 }
 
-/**
- * Validate model name format (basic validation)
- */
 export function validateModel(model?: string): ValidationResult {
   if (!model) {
     return { isValid: false, errors: ['Model is required'] };
   }
 
-  // Basic validation - model names should be alphanumeric with dashes/dots
   if (!/^[a-zA-Z0-9\-\.]+$/.test(model)) {
     return {
       isValid: false,
@@ -133,13 +122,9 @@ export function validateModel(model?: string): ValidationResult {
   return { isValid: true, errors: [] };
 }
 
-/**
- * Validate that required fields for execution are present
- */
 export function validateExecutionRequirements(config: CIAConfig): ValidationResult {
   const errors: string[] = [];
 
-  // Provider and model are required for actual execution
   const providerResult = validateProvider(config.provider);
   if (!providerResult.isValid) {
     errors.push(...providerResult.errors);

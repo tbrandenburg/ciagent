@@ -4,8 +4,8 @@ import {
   validateProvider,
   validateModel,
   validateExecutionRequirements,
-} from './validation.js';
-import { CIAConfig } from '../config/loader.js';
+} from '../../src/shared/validation/validation.js';
+import { CIAConfig } from '../../src/shared/config/loader.js';
 
 describe('Input Validation', () => {
   describe('validateConfig', () => {
@@ -104,7 +104,7 @@ describe('Input Validation', () => {
 
   describe('validateProvider', () => {
     it('should accept valid providers', () => {
-      const validProviders = ['azure', 'openai', 'anthropic', 'google', 'local'];
+      const validProviders = ['codex', 'claude'];
       validProviders.forEach(provider => {
         const result = validateProvider(provider);
         expect(result.isValid).toBe(true);
@@ -115,7 +115,7 @@ describe('Input Validation', () => {
       const result = validateProvider('invalid-provider');
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        'Invalid provider: invalid-provider. Must be one of: azure, openai, anthropic, google, local.'
+        'Invalid provider: invalid-provider. Must be one of: codex, claude.'
       );
     });
 
@@ -153,7 +153,7 @@ describe('Input Validation', () => {
   describe('validateExecutionRequirements', () => {
     it('should validate complete execution config', () => {
       const config: CIAConfig = {
-        provider: 'azure',
+        provider: 'codex',
         model: 'gpt-4',
       };
       const result = validateExecutionRequirements(config);
@@ -171,7 +171,7 @@ describe('Input Validation', () => {
 
     it('should reject missing model', () => {
       const config: CIAConfig = {
-        provider: 'azure',
+        provider: 'codex',
       };
       const result = validateExecutionRequirements(config);
       expect(result.isValid).toBe(false);

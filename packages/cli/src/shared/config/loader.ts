@@ -1,7 +1,6 @@
-import { config } from 'dotenv';
 import { resolve } from 'path';
 import { readFileSync, existsSync } from 'fs';
-import { ExitCode } from '../utils/exit-codes.js';
+import { ExitCode } from '../../utils/exit-codes.js';
 
 export interface CIAConfig {
   provider?: string;
@@ -24,44 +23,28 @@ export interface CIAConfig {
   'log-level'?: string;
 }
 
-/**
- * Load configuration from hierarchy: CLI flags > repo config > user config > env vars
- * Per CLI spec requirements
- */
 export function loadConfig(cliArgs: Partial<CIAConfig> = {}): CIAConfig {
-  // Start with environment variables (lowest priority)
   let config = loadFromEnv();
 
-  // Merge user config (~/.cia/config.json)
   const userConfig = loadUserConfig();
   if (userConfig) {
     config = mergeConfigs(config, userConfig);
   }
 
-  // Merge repo config (.cia/config.json)
   const repoConfig = loadRepoConfig();
   if (repoConfig) {
     config = mergeConfigs(config, repoConfig);
   }
 
-  // Merge CLI arguments (highest priority)
   config = mergeConfigs(config, cliArgs);
 
   return config;
 }
 
-/**
- * Load configuration from environment variables
- */
 function loadFromEnv(): Partial<CIAConfig> {
-  // Load .env from global CIA config only
   const globalEnvPath = resolve(process.env.HOME ?? '~', '.cia', '.env');
   if (existsSync(globalEnvPath)) {
-    const result = config({ path: globalEnvPath });
-    if (result.error) {
-      console.error(`Error loading .env from ${globalEnvPath}: ${result.error.message}`);
-      process.exit(ExitCode.AUTH_CONFIG);
-    }
+    loadDotEnvFile(globalEnvPath);
   }
 
   return {
@@ -79,25 +62,47 @@ function loadFromEnv(): Partial<CIAConfig> {
   };
 }
 
-/**
- * Load user configuration from ~/.cia/config.json
- */
+function loadDotEnvFile(filePath: string): void {
+  try {
+    const content = readFileSync(filePath, 'utf8');
+    const lines = content.split(/\r?\n/);
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        continue;
+      }
+
+      const separatorIndex = trimmed.indexOf('=');
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      const key = trimmed.slice(0, separatorIndex).trim();
+      const rawValue = trimmed.slice(separatorIndex + 1).trim();
+      const value = rawValue.replace(/^['"]|['"]$/g, '');
+
+      if (!process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  } catch (error) {
+    const err = error as Error;
+    console.error(`Error loading .env from ${filePath}: ${err.message}`);
+    process.exit(ExitCode.AUTH_CONFIG);
+  }
+}
+
 function loadUserConfig(): Partial<CIAConfig> | null {
   const userConfigPath = resolve(process.env.HOME ?? '~', '.cia', 'config.json');
   return loadConfigFile(userConfigPath);
 }
 
-/**
- * Load repository configuration from .cia/config.json
- */
 function loadRepoConfig(): Partial<CIAConfig> | null {
   const repoConfigPath = resolve(process.cwd(), '.cia', 'config.json');
   return loadConfigFile(repoConfigPath);
 }
 
-/**
- * Load configuration from a JSON file
- */
 function loadConfigFile(filePath: string): Partial<CIAConfig> | null {
   if (!existsSync(filePath)) {
     return null;
@@ -111,21 +116,19 @@ function loadConfigFile(filePath: string): Partial<CIAConfig> | null {
     console.error(`Error loading config from ${filePath}: ${err.message}`);
     process.exit(ExitCode.AUTH_CONFIG);
   }
+
+  return null;
 }
 
-/**
- * Merge two config objects, with second taking precedence
- */
 function mergeConfigs(base: Partial<CIAConfig>, override: Partial<CIAConfig>): CIAConfig {
   const merged = { ...base };
 
   for (const [key, value] of Object.entries(override)) {
     if (value !== undefined && value !== null && value !== '') {
       if (key === 'context' && Array.isArray(value)) {
-        // For array fields like context, concatenate
         merged.context = [...(merged.context || []), ...value];
       } else {
-        (merged as any)[key] = value;
+        (merged as Record<string, unknown>)[key] = value;
       }
     }
   }

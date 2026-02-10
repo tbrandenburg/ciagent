@@ -41,7 +41,7 @@ validate-l1: ## Level 1: Static analysis
 	bun run type-check && bun run lint
 
 validate-l2: ## Level 2: Unit tests  
-	bun test packages/cli/src/
+	bun test packages/cli/tests/
 
 validate-l3: ## Level 3: Full suite
 	bun test && bun run build

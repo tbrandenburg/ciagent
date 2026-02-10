@@ -206,7 +206,7 @@ We purster a test coverage of >=40% in early stages of the project.
 
 | # | Phase | Description | Status | Parallel | Depends | PRP Plan |
 |---|-------|-------------|--------|----------|---------|----------|
-| 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | in-progress | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
+| 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | pending | - | 1 | - |
 | 3 | Codex integration | Implement Codex SDK client, streaming, auth | pending | with 4 | 2 | - |
 | 4 | Azure OpenAI integration | Implement Vercel AI SDK Azure provider, streaming | pending | with 3 | 2 | - |

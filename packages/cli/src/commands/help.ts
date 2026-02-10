@@ -8,19 +8,19 @@ export function printHelpText(): void {
   console.log('USAGE:');
   console.log('  cia <command> [options]');
   console.log('  cia run <prompt> [options]');
+  console.log('  cia models [options]');
   console.log('');
   console.log('COMMANDS:');
   console.log('  run <prompt>         Execute AI prompt with specified provider');
+  console.log('  models               List available models (phase-1 scaffold output)');
   console.log('');
   console.log('OPTIONS:');
   console.log('  -h, --help           Show this help message');
   console.log('  -v, --version        Show version information');
   console.log('');
   console.log('CORE OPTIONS:');
-  console.log(
-    '  -p, --provider       AI provider (azure|openai|anthropic|google|local) [default: azure]'
-  );
-  console.log('  -m, --model          Model name (e.g., gpt-4, claude-3-sonnet)');
+  console.log('  -p, --provider       AI provider (codex|claude) [default: codex]');
+  console.log('  -m, --model          Model name (optional)');
   console.log('  --mode               Execution mode (lazy|strict) [default: lazy]');
   console.log('  --format             Output format (default|json) [default: default]');
   console.log('');
@@ -43,15 +43,15 @@ export function printHelpText(): void {
   console.log('PROVIDER CONFIGURATION:');
   console.log('  --endpoint           Custom API endpoint URL');
   console.log('  --api-key            API key (prefer environment variables)');
-  console.log('  --api-version        API version for Azure/OpenAI');
-  console.log('  --org                Organization ID for OpenAI');
+  console.log('  Codex auth file:     ~/.codex/auth.json');
+  console.log('  Claude auth:         `claude /login` or ANTHROPIC_API_KEY');
   console.log('');
   console.log('DEBUGGING:');
   console.log('  --log-level          Log level (DEBUG|INFO|WARN|ERROR) [default: INFO]');
   console.log('');
   console.log('EXAMPLES:');
-  console.log('  # Basic usage with Azure OpenAI');
-  console.log('  cia run "Explain how CI/CD works" --model gpt-4');
+  console.log('  # Basic usage with Codex');
+  console.log('  cia run "Explain how CI/CD works" --provider codex');
   console.log('');
   console.log('  # Strict mode with schema validation');
   console.log('  cia run "Generate user JSON" --mode strict --schema-file user.schema.json');
@@ -62,8 +62,11 @@ export function printHelpText(): void {
   console.log('  # Multiple context sources');
   console.log('  cia run "Summarize these docs" --context docs/api.md --context docs/guide.md');
   console.log('');
-  console.log('  # Alternative provider');
-  console.log('  cia run "Hello world" --provider openai --model gpt-3.5-turbo');
+  console.log('  # Codex provider');
+  console.log('  cia run "Hello world" --provider codex');
+  console.log('');
+  console.log('  # Claude provider');
+  console.log('  cia run "Hello world" --provider claude');
   console.log('');
   console.log('CONFIGURATION:');
   console.log('  Configuration is loaded in this order (later overrides earlier):');

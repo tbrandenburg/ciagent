@@ -1,5 +1,5 @@
 import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
-import { printVersionInfo } from './version.js';
+import { printVersionInfo } from '../../src/commands/version.js';
 
 describe('Version Command', () => {
   let consoleSpy: ReturnType<typeof spyOn>;

@@ -1,15 +1,17 @@
-// Types
+import { CodexAssistantChat } from './codex.js';
+import { ClaudeAssistantChat } from './claude.js';
+import { type IAssistantChat } from './types.js';
+
+export async function createAssistantChat(provider: string): Promise<IAssistantChat> {
+  if (provider === 'codex') {
+    return CodexAssistantChat.create();
+  }
+
+  if (provider === 'claude') {
+    return ClaudeAssistantChat.create();
+  }
+
+  throw new Error(`Unsupported provider: ${provider}. Supported: codex, claude.`);
+}
+
 export * from './types.js';
-
-// Base provider
-export * from './base.js';
-
-// Provider implementations
-export * from './azure.js';
-export * from './openai.js';
-export * from './anthropic.js';
-export * from './google.js';
-export * from './local.js';
-
-// Registry
-export * from './registry.js';

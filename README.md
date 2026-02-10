@@ -16,6 +16,12 @@ make build
 
 # Run full CI validation
 make ci
+
+# Run CLI scaffold commands
+bun packages/cli/src/cli.ts --help
+bun packages/cli/src/cli.ts --version
+bun packages/cli/src/cli.ts run "test"
+bun packages/cli/src/cli.ts models
 ```
 
 ## Development Workflow
@@ -40,5 +46,7 @@ This is Phase 1 of the ciagent implementation, providing the core CLI scaffold w
 - TypeScript + Bun runtime
 - Complete CLI argument parsing and validation  
 - Configuration hierarchy (CLI > repo > user > env)
+- `run` and `models` command surface
+- Codex-first chat integration via `IAssistantChat`
 - Comprehensive test suite (89.73% coverage)
 - Binary compilation for distribution

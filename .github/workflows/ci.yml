@@ -64,11 +64,9 @@ jobs:
           path: dist/cia
           retention-days: 7
 
-  # Additional job for E2E tests (only runs on manual dispatch with production environment)
   e2e-tests:
     name: End-to-End Tests
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production' }}
     needs: ci
     timeout-minutes: 10
 
@@ -84,10 +82,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build CLI binary
+        run: bun run build
+
       - name: Run E2E tests
-        run: RUN_E2E_TESTS=1 bun test packages/cli/src/e2e.test.ts
+        run: RUN_E2E_TESTS=1 bun test packages/cli/tests/e2e.test.ts
         env:
-          # Add environment variables for E2E tests if needed
           CI: true
 
       - name: Upload E2E test results

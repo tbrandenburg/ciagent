@@ -1,12 +1,12 @@
 import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
-import { ExitCode } from './exit-codes';
+import { ExitCode } from '../../src/utils/exit-codes';
 import {
   createError,
   printError,
   CommonErrors,
   handleUnexpectedError,
   type CliError,
-} from './error-handling';
+} from '../../src/shared/errors/error-handling';
 
 describe('Error Handling', () => {
   let consoleErrorSpy: ReturnType<typeof spyOn>;
@@ -95,7 +95,7 @@ describe('Error Handling', () => {
       
       expect(error.code).toBe(ExitCode.INPUT_VALIDATION);
       expect(error.message).toBe('No command specified');
-      expect(error.suggestion).toBe('Try: cia run \"your prompt here\" --provider azure');
+      expect(error.suggestion).toBe('Try: cia run \"your prompt here\"');
     });
 
     it('creates timeout error', () => {

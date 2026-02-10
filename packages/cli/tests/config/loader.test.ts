@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { loadConfig } from './loader.js';
+import { loadConfig } from '../../src/shared/config/loader.js';
 import { existsSync, writeFileSync, unlinkSync, mkdirSync, rmSync } from 'fs';
 import { resolve } from 'path';
 
@@ -47,8 +47,8 @@ describe('Configuration Loader', () => {
 
   describe('Configuration Hierarchy', () => {
     it('should load CLI args with highest priority', () => {
-      const config = loadConfig({ provider: 'openai', model: 'gpt-4' });
-      expect(config.provider).toBe('openai');
+      const config = loadConfig({ provider: 'codex', model: 'gpt-4' });
+      expect(config.provider).toBe('codex');
       expect(config.model).toBe('gpt-4');
     });
 
@@ -58,7 +58,7 @@ describe('Configuration Loader', () => {
       writeFileSync(
         testUserConfigFile,
         JSON.stringify({
-          provider: 'azure',
+          provider: 'codex',
           model: 'gpt-3.5-turbo',
           timeout: 30,
         })
@@ -66,19 +66,19 @@ describe('Configuration Loader', () => {
 
       // CLI args should override user config
       const config = loadConfig({
-        provider: 'openai', // Should override azure
+        provider: 'codex', // Should override config file provider
         'log-level': 'DEBUG', // Should be added
       });
 
-      expect(config.provider).toBe('openai'); // CLI override
+      expect(config.provider).toBe('codex'); // CLI override
       expect(config.model).toBe('gpt-3.5-turbo'); // From user config
       expect(config.timeout).toBe(30); // From user config
       expect(config['log-level']).toBe('DEBUG'); // From CLI
     });
 
     it('should handle missing config files gracefully', () => {
-      const config = loadConfig({ provider: 'azure' });
-      expect(config.provider).toBe('azure');
+      const config = loadConfig({ provider: 'codex' });
+      expect(config.provider).toBe('codex');
     });
   });
 
@@ -87,11 +87,11 @@ describe('Configuration Loader', () => {
       const originalProvider = process.env.CIA_PROVIDER;
       const originalModel = process.env.CIA_MODEL;
 
-      process.env.CIA_PROVIDER = 'google';
+      process.env.CIA_PROVIDER = 'codex';
       process.env.CIA_MODEL = 'gemini-pro';
 
       const config = loadConfig();
-      expect(config.provider).toBe('google');
+      expect(config.provider).toBe('codex');
       expect(config.model).toBe('gemini-pro');
 
       // Restore environment

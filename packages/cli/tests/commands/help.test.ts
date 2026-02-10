@@ -1,5 +1,5 @@
 import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
-import { printHelpText } from './help.js';
+import { printHelpText } from '../../src/commands/help.js';
 
 describe('Help Command', () => {
   let consoleSpy: ReturnType<typeof spyOn>;
@@ -45,7 +45,7 @@ describe('Help Command', () => {
     printHelpText();
 
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
-    expect(allOutput).toContain('azure|openai|anthropic|google|local');
+    expect(allOutput).toContain('AI provider (codex|claude) [default: codex]');
   });
 
   it('should include mode options', () => {
