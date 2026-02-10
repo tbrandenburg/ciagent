@@ -213,7 +213,7 @@ We purster a test coverage of >=40% in early stages of the project.
 |---|-------|-------------|--------|----------|---------|----------|
 | 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | complete | - | 1 | - |
-| 3 | Provider reliability | Contract tests, error normalization, retry/backoff | pending | - | 2 | - |
+| 3 | Provider reliability | Contract tests, error normalization, retry/backoff | in-progress | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3 | - |
 | 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3, 4 | - |
 | 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3, 4 | - |
