@@ -13,9 +13,9 @@ DevOps engineers and solo developers need to integrate AI agents into CI/CD pipe
 
 ## Proposed Solution
 
-A stateless CLI tool (`cia`) that runs in slim Bun containers with <50ms startup time, providing a unified interface to multiple LLM providers (Codex SDK, Vercel AI SDK with Azure OpenAI, Claude SDK). It accepts context from files, folders, and URLs (GitHub PRs, issues), streams responses, and integrates into shell scripts with zero boilerplate. Built on the existing POC's provider abstraction pattern, it prioritizes simplicity over features.
+A stateless CLI tool (`cia`) that runs in slim Bun containers with <50ms startup time, providing a unified interface to multiple LLM providers (Codex SDK, Claude SDK, Vercel AI SDK with Azure OpenAI). It accepts context from files, folders, and URLs (GitHub PRs, issues), returns responses, and integrates into shell scripts with zero boilerplate. Built on the existing POC's provider abstraction pattern, it prioritizes simplicity over features.
 
-**Why this approach**: Bun's <50ms startup + stateless design keeps overhead under 100ms (vs platform agents with 500ms+ initialization). Provider abstraction prevents vendor lock-in. Streaming reduces memory pressure on constrained devices. Shell script integration (not TypeScript) makes it approachable for DevOps workflows.
+**Why this approach**: Bun's <50ms startup + stateless design keeps overhead under 100ms (vs platform agents with 500ms+ initialization). Provider abstraction prevents vendor lock-in. Shell script integration (not TypeScript) makes it approachable for DevOps workflows.
 
 **Related spec**: `docs/cia-cli-spec.md` (extended structured runner details: strict mode, schema enforcement, output envelopes).
 
@@ -28,7 +28,7 @@ We'll know we're right when **ciagent is integrated into 5+ public GitHub workfl
 ## What We're NOT Building
 
 - **Interactive chat or TUI** - Stateless CLI only; users pipe prompts, get responses, done
-- **Long-running agents** - No session persistence beyond streaming a single response
+- **Long-running agents** - No session persistence beyond a single response
 - **Proprietary model hosting** - Only integrates existing LLM providers via their SDKs
 - **Web UI or dashboard** - Terminal output only; users compose workflows in shell scripts
 - **Built-in prompt library** - Users bring their own prompts; we execute them
@@ -57,7 +57,7 @@ We'll know we're right when **ciagent is integrated into 5+ public GitHub workfl
 - **Who**: DevOps engineers at enterprises with restricted platform agent policies, or solo developers building CI/CD automation without GitHub Copilot access
 - **Current behavior**: Manually write GitHub Actions steps for code analysis, use `curl` + `jq` to pipe data to OpenAI API, or skip AI integration entirely due to complexity
 - **Trigger**: Need to automate repetitive tasks (code review, PR summarization, vulnerability scanning) in CI/CD but can't use platform agents
-- **Success state**: Single shell command in GitHub workflow that takes PR context and streams AI analysis to output
+- **Success state**: Single shell command in GitHub workflow that takes PR context and returns AI analysis to output
 
 **Job to Be Done**
 When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run prompts against multiple LLM providers without vendor lock-in or boilerplate**, so I can **automate decisions without waiting for enterprise platform agent approval**.
@@ -73,18 +73,20 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 
 ### Core Capabilities (MoSCoW)
 
+First-class providers for v1: Codex SDK, Claude SDK, Vercel AI SDK (Azure, OpenAI, GitHub Copilot).
+
 | Priority | Capability | Rationale |
 |----------|------------|-----------|
-| Must | Codex SDK integration with streaming | POC already works; core provider for testing |
-| Must | Claude SDK integration with streaming | Native Claude API support |
-| Must | Vercel AI SDK integration (Azure, OpenAI, GitHub Copilot) | Enterprise-friendly, streaming native, modern API |
+| Must | Codex SDK integration | POC already works; core provider for testing |
+| Must | Claude SDK integration | Native Claude API support |
+| Must | Vercel AI SDK integration (Azure, OpenAI, GitHub Copilot) | Enterprise-friendly, modern API |
 | Must | Context from files (`--context file.py`) | Essential for code analysis use cases |
 | Must | Context from folders (`--context src/`) | Batch file context for large codebases |
 | Must | Context from URLs (`--context https://github.com/...`) | GitHub PR/issue integration differentiator |
 | Must | Prompt piping (`echo "..." \| cia run`) | Stateless, composable with shell scripts |
 | Must | Lazy and strict mode according to `docs/cia-cli-spec.md` | Quick prompting and strictly formatted outputs |
 | Must | Model listing (`cia models`) | Discoverability across providers |
-| Must | Streaming output | Memory efficiency + real-time feedback |
+| Should | Streaming output | Memory efficiency + real-time feedback |
 | Should | MCP (Model Context Protocol) support | Extends capabilities without custom code |
 | Should | Skills integration | Reusable prompt patterns for common tasks |
 | Should | Tool calling/function execution | Unlock agentic workflows |
@@ -121,7 +123,7 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
    cia models  # Lists: codex/codex-v1, claude/claude-3-sonnet, azure/gpt-5.2, github-copilot/claude-sonnet-4, openai/gpt-5.2, etc.
    ```
 
-**Success signal**: DevOps engineer copies one of above commands into GitHub workflow, it runs in <150ms overhead, streams results.
+**Success signal**: DevOps engineer copies one of above commands into GitHub workflow, it runs in <150ms overhead and returns results.
 
 ### User Flow
 
@@ -145,7 +147,7 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 └─────────────────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────────────┐
-│ 4. Stream results to stdout                     │
+│ 4. Write results to stdout                      │
 │    → Pipe to comment, exit code, artifact       │
 └─────────────────────────────────────────────────┘
 ```
@@ -174,6 +176,9 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
    - Folders: Recursive walk with `.gitignore` respect
    - URLs: GitHub API fetch (with caching for rate limits)
 5. **Streaming**: AsyncGenerator pattern from POC, write chunks to stdout
+   - v1 rule: keep the `IAssistantClient` streaming interface everywhere.
+   - If a provider SDK exposes streaming, use it.
+   - If a provider SDK does not expose streaming, wrap the single response into the AsyncGenerator (no alternate non-streaming interface).
 6. **Config**: Environment variables with optional JSON configuration:
    - Primary: `CODEX_API_KEY`, `CLAUDE_API_KEY`, `AZURE_OPENAI_KEY`, `AZURE_RESOURCE_NAME`, `OPENAI_API_KEY`, `GITHUB_TOKEN`
    - Optional: `.cia/config.json` for advanced provider configurations
@@ -190,7 +195,7 @@ When **I'm building a CI/CD pipeline that needs AI reasoning**, I want to **run 
 | MCP/Skills overhead on Pi 3 | MEDIUM | Make optional; lazy-load implementations |
 | URL context parsing complexity | MEDIUM | Start with GitHub API only; defer GitLab/Bitbucket |
 
-**Testing strategy (all phases)**: Maintain a modern test pyramid with approximate distribution of 70% unit, 20% integration, 10% end-to-end tests. Every phase should add or refine tests in its layer to keep the distribution balanced.
+**Testing strategy (all phases)**: Maintain a modern test pyramid with approximate distribution of 70% unit, 20% integration, 10% end-to-end tests. Every phase should add or refine tests in its layer to keep the distribution balanced. Prefer Codex SDK as the end-to-end test provider because auth is available via `~/.codex/auth.json`.
 We purster a test coverage of >=40% in early stages of the project.
 
 ---
@@ -208,11 +213,11 @@ We purster a test coverage of >=40% in early stages of the project.
 |---|-------|-------------|--------|----------|---------|----------|
 | 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | pending | - | 1 | - |
-| 3 | Codex integration | Implement Codex SDK client, streaming, auth | pending | with 4 | 2 | - |
-| 4 | Azure OpenAI integration | Implement Vercel AI SDK Azure provider, streaming | pending | with 3 | 2 | - |
+| 3 | Codex integration | Implement Codex SDK client, auth | pending | with 4 | 2 | - |
+| 4 | Azure OpenAI integration | Implement Vercel AI SDK Azure provider | pending | with 3 | 2 | - |
 | 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3, 4 | - |
 | 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3, 4 | - |
-| 7 | Streaming output | Stdout writer for AsyncGenerator chunks | pending | with 6 | 3, 4 | - |
+| 7 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 6 | 3, 4 | - |
 | 8 | MCP/Skills/Tools | Optional integrations for extended capabilities | pending | - | 5, 6, 7 | - |
 | 9 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | pending | - | 8 | - |
 | 10 | Packaging & docs | Bun binary, Docker image, README with examples | pending | - | 9 | - |
@@ -224,6 +229,9 @@ We purster a test coverage of >=40% in early stages of the project.
 - **Scope**: 
   - Bun project setup with TypeScript
   - Template-grade project scaffolding (Makefile + CI workflow)
+  - Makefile is mandatory
+  - Pre-push hook is mandatory and runs `make ci`
+  - Create the first basic `README.md`
   - Vitest setup with coverage gate (>=40%)
   - Commander.js for `run`, `models` commands (see details: `docs/cia-cli-spec.md`)
   - Environment variable parsing (API keys)
@@ -241,22 +249,22 @@ We purster a test coverage of >=40% in early stages of the project.
 - **Success signal**: Mock client passes interface contract in Vitest tests
 
 **Phase 3: Codex Integration**
-- **Goal**: Working Codex SDK client with streaming
+- **Goal**: Working Codex SDK client
 - **Scope**:
   - Port `CodexClient` from POC (`dev/poc-codex-extraction/codex.ts`)
   - Auth from `CODEX_API_KEY` or `~/.codex/auth.json`
-  - Streaming via AsyncGenerator
+  - Non-streaming response mapped into AsyncGenerator
   - Session ID handling (stateless, ignore resume)
-- **Success signal**: `CIA_PROVIDER=codex cia run "Hello"` streams response from Codex
+- **Success signal**: `CIA_PROVIDER=codex cia run "Hello"` returns response from Codex
 
 **Phase 4: Azure OpenAI Integration**
-- **Goal**: Vercel AI SDK Azure provider with streaming
+- **Goal**: Vercel AI SDK Azure provider
 - **Scope**:
   - Install `ai` + `@ai-sdk/azure`
-  - Implement `AzureClient` using `streamText()` from Vercel SDK
+  - Implement `AzureClient` using `generateText()` from Vercel SDK
   - Auth from `AZURE_OPENAI_KEY` + `AZURE_RESOURCE_NAME`
-  - Convert Vercel stream to `MessageChunk` AsyncGenerator
-- **Success signal**: `CIA_PROVIDER=azure cia run "Hello"` streams response from Azure OpenAI
+  - Convert non-streaming response to `MessageChunk` AsyncGenerator
+- **Success signal**: `CIA_PROVIDER=azure cia run "Hello"` returns response from Azure OpenAI
 
 **Phase 5: Context Handling**
 - **Goal**: `--context` flag loads files, folders, URLs
@@ -275,14 +283,14 @@ We purster a test coverage of >=40% in early stages of the project.
   - Output format: `provider:model` (e.g., `codex:codex-v1`, `azure:gpt-4o`)
 - **Success signal**: `cia models` prints table with at least 2 models
 
-**Phase 7: Streaming Output**
-- **Goal**: Real-time stdout updates as LLM responds
+**Phase 7: Streaming Output (v2+)**
+- **Goal**: Real-time stdout updates as LLM responds (v2+ capability gate)
 - **Scope**:
   - Consume `AsyncGenerator<MessageChunk>` from clients
   - Write `assistant` chunks to stdout immediately
   - Optionally show `thinking` chunks with `--verbose`
   - Suppress `tool`, `system` unless `--debug`
-- **Success signal**: `cia run "Count to 10"` prints numbers as they arrive, not buffered
+- **Success signal**: v2+ only: `cia run "Count to 10"` prints numbers as they arrive, not buffered
 
 **Phase 8: MCP/Skills/Tools**
 - **Goal**: Extend capabilities without hardcoding features
@@ -301,7 +309,7 @@ We purster a test coverage of >=40% in early stages of the project.
   - Real API integration tests (gated behind `RUN_INTEGRATION_TESTS=1`)
   - Benchmark suite: measure startup time on Bun vs Node, Pi 3 vs x86
   - Target: <100ms overhead, <50MB memory
-- **Testing strategy**: Reinforce the global test pyramid targets (70% unit, 20% integration, 10% end-to-end) and cover critical CLI flows end-to-end.
+- **Testing strategy**: Reinforce the global test pyramid targets (70% unit, 20% integration, 10% end-to-end) and cover critical CLI flows end-to-end. Use Codex SDK as the primary end-to-end test provider (auth via `~/.codex/auth.json`).
 - **Success signal**: All tests pass; benchmark shows <100ms on Pi 3 emulator
 
 **Phase 10: Packaging & Docs**
@@ -333,7 +341,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | Testing | Vitest | Jest, ava | Fast, Bun-compatible, modern API |
 | Packaging | Bun binary + Docker | npm package only | Binary = zero install; Docker = reproducible CI/CD |
 | Streaming | AsyncGenerator | EventEmitter, callbacks | POC pattern; type-safe; backpressure handling |
-| Claude SDK | Defer to v2 | Include in MVP | Codex + Azure sufficient to validate hypothesis; reduce complexity |
+| Claude SDK | Include in MVP | Defer to v2 | Required first-class provider |
 
 ---
 
@@ -341,14 +349,14 @@ We purster a test coverage of >=40% in early stages of the project.
 
 **Market Context**
 - **Competitors**: `llm-cli`, `llm-ci-runner`, `promptfoo` prove demand for vendor-neutral LLM CLI tools in CI/CD
-- **Gap**: None support URL context (GitHub PRs) as first-class; most focus on single-shot invocations, not streaming
+- **Gap**: None support URL context (GitHub PRs) as first-class; most focus on single-shot invocations
 - **Opportunity**: Streaming + session management + URL context = differentiator
 - **Adoption pattern**: DevOps tools succeed when integration is <5 minutes; examples critical
 
 **Technical Context**
-- **POC advantages**: Working provider abstraction, streaming infrastructure, CI-proven pattern (`ci-review.ts`)
+- **POC advantages**: Working provider abstraction, CI-proven pattern (`ci-review.ts`)
 - **Bun performance**: 30-50ms cold start vs Node's 200-300ms; meets <100ms constraint
-- **Vercel AI SDK**: Native Azure OpenAI + streaming; `@ai-sdk/azure` is production-ready
+- **Vercel AI SDK**: Native Azure OpenAI; `@ai-sdk/azure` is production-ready
 - **Raspberry Pi optimization**: Minimize dependencies, lazy-load modules, use fast SD card; Bun eliminates most overhead
 - **Risk mitigation**: Benchmark early (Phase 9); if <100ms impossible, adjust to "best effort" and document
 

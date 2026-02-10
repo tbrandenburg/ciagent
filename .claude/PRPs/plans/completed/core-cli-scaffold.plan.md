@@ -1,33 +1,33 @@
-# Feature: Core CLI Scaffold for ciagent
+# Feature: Core CLI Scaffold
 
 ## Summary
 
-Create the foundational CLI architecture for ciagent - a vendor-neutral AI agent CLI tool for CI/CD pipelines. This establishes the Bun-based runtime, TypeScript project structure, argument parsing with Node.js `parseArgs` utility, environment configuration, and testing framework. The scaffold provides the base for all subsequent provider integrations and features while targeting <100ms startup overhead.
+Build the first production scaffold for `cia`: a Bun + TypeScript CLI with `run` and `models` commands, deterministic argument validation, environment/config loading, and fail-loud behavior that currently returns a clear "No provider configured" result for `cia run`. The implementation mirrors the existing async-stream client patterns from the PoC while aligning with current Bun/Commander/Vitest practices and security guidance.
 
 ## User Story
 
-As a DevOps engineer at an enterprise with restricted platform agent policies
-I want to install and run a basic `cia` CLI command with help and version
-So that I can validate the tool works in my environment before configuring AI providers
+As a DevOps engineer using CI/CD automation
+I want a working `cia` command with help/version and safe config parsing
+So that I can verify installation and wire workflows before provider integrations land
 
 ## Problem Statement
 
-Phase 1 creates the minimal runnable CLI that can be installed globally and provides proper help/version output with graceful error handling when no providers are configured. Must achieve <50ms startup time on Bun runtime to meet the <100ms total overhead target.
+The repository has a validated provider PoC in `dev/poc-codex-extraction/` but no installable CLI artifact implementing the PRD v1 command surface (`cia run`, `cia models`, mode/format flags, and fail-loud errors). This blocks phase progression and prevents end-to-end CLI validation in CI pipelines.
 
 ## Solution Statement
 
-Build a TypeScript-based CLI using Bun runtime with Node.js `parseArgs` for argument parsing, following the established patterns from the existing codebase. Structure as a workspace package that can be built into a standalone binary for distribution.
+Create a minimal, strict CLI scaffold at repository root using Bun runtime and Commander.js subcommands, backed by strongly typed option parsing and explicit exit-code mapping. Reuse PoC type contracts and streaming assumptions without implementing provider execution in this phase; return explicit scaffolding errors for unimplemented provider execution paths.
 
 ## Metadata
 
-| Field               | Value                                             |
-| ------------------- | ------------------------------------------------- |
-| Type                | NEW_CAPABILITY                                    |
-| Complexity          | HIGH                                              |
-| Systems Affected    | CLI runtime, project structure, build system, config hierarchy, validation, test pyramid |
-| Dependencies        | bun >=1.0.0, @types/bun, typescript, JSON Schema validator |
-| Estimated Tasks     | 13                                                |
-| **Research Timestamp** | **2026-02-09T23:00:00Z**                      |
+| Field | Value |
+| --- | --- |
+| Type | NEW_CAPABILITY |
+| Complexity | MEDIUM |
+| Systems Affected | CLI entrypoint, argument parsing, config loading, validation, test harness, build/packaging |
+| Dependencies | bun@1.3.6 (local runtime), commander@14.0.1 (latest), vitest@4.0.7 (latest), typescript (latest stable), @types/bun@1.3.8, @types/node@25.2.2 |
+| Estimated Tasks | 13 |
+| **Research Timestamp** | **2026-02-09T21:17:29Z** |
 
 ---
 
@@ -40,45 +40,48 @@ Build a TypeScript-based CLI using Bun runtime with Node.js `parseArgs` for argu
 ╠═══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                               ║
 ║   ┌─────────────┐         ┌─────────────┐         ┌─────────────┐            ║
-║   │   DevOps    │ ──────► │ Manual AI   │ ──────► │ Inconsistent│            ║
-║   │ Engineer    │         │ Integration │         │  Results    │            ║
+║   │ DevOps User │ ──────► │ Wants `cia` │ ──────► │ Command not │            ║
+║   │ in CI job   │         │ bootstrap    │         │ available   │            ║
 ║   └─────────────┘         └─────────────┘         └─────────────┘            ║
 ║                                                                               ║
-║   USER_FLOW: curl OpenAI API + jq parsing + shell scripting                  ║
-║   PAIN_POINT: No standardized tool, manual API calls, no streaming           ║
-║   DATA_FLOW: Raw JSON → manual parsing → shell variables                     ║
+║   USER_FLOW: install intent -> search commands -> no production CLI          ║
+║   PAIN_POINT: PoC exists but no standardized entrypoint for CI pipelines      ║
+║   DATA_FLOW: ad-hoc script experimentation only, no shared command contract   ║
 ║                                                                               ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
+```
 
+### After State
+```
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║                               AFTER STATE                                    ║
 ╠═══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                               ║
-║   ┌─────────────┐         ┌─────────────┐         ┌─────────────┐            ║
-║   │   DevOps    │ ──────► │ cia --help  │ ──────► │ Clear Usage │            ║
-║   │ Engineer    │         │ cia run     │         │ Instructions│            ║
-║   └─────────────┘         └─────────────┘         └─────────────┘            ║
+║   ┌─────────────┐         ┌─────────────┐         ┌──────────────────────┐   ║
+║   │ DevOps User │ ──────► │ `cia --help`│ ──────► │ Clear command surface │   ║
+║   │ in CI job   │         │ `cia run`   │         │ + explicit failures    │   ║
+║   └─────────────┘         └─────────────┘         └──────────────────────┘   ║
 ║                                   │                                           ║
 ║                                   ▼                                           ║
-║                          ┌─────────────┐                                      ║
-║                          │ Structured  │  ◄── Binary distribution ready      ║
-║                          │ CLI Tool    │                                      ║
-║                          └─────────────┘                                      ║
+║                          ┌─────────────────┐                                  ║
+║                          │ Scaffolded CLI  │ ◄── run/models wired,            ║
+║                          │ (phase-ready)   │     providers deferred            ║
+║                          └─────────────────┘                                  ║
 ║                                                                               ║
-║   USER_FLOW: bun install -g ciagent → cia --help → configuration guidance    ║
-║   VALUE_ADD: Standard tool interface, proper help, version info, errors      ║
-║   DATA_FLOW: CLI args → parsed options → structured output                   ║
+║   USER_FLOW: install -> help/version -> run/models -> deterministic output    ║
+║   VALUE_ADD: stable contract for CI scripting + phase-2 provider onboarding   ║
+║   DATA_FLOW: argv/stdin -> validated options -> command handler -> stdout/rc  ║
 ║                                                                               ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ### Interaction Changes
-
-| Location        | Before                    | After                     | User_Action   | Impact                |
-| --------------- | ------------------------- | ------------------------- | ------------- | --------------------- |
-| Terminal        | No cia command exists     | `cia --help` works        | Run --help    | Gets usage guidance   |
-| Terminal        | No version info           | `cia --version` works     | Run --version | Gets version info     |
-| CI/CD Pipeline  | Manual curl + jq scripts  | `cia run` fails gracefully| Try basic run | Clear error message  |
+| Location | Before | After | User Impact |
+| --- | --- | --- | --- |
+| Terminal (`cia --help`) | No command | Usage + flags printed | Fast onboarding in CI scripts |
+| Terminal (`cia --version`) | No command | Version output | Verifiable install artifact |
+| Terminal (`cia run "test"`) | Impossible | Deterministic fail-loud message (`No provider configured`) | Safe baseline before provider implementation |
+| Terminal (`cia models`) | Impossible | Deterministic placeholder output and exit code contract | Enables workflow wiring now |
 
 ---
 
@@ -87,217 +90,207 @@ Build a TypeScript-based CLI using Bun runtime with Node.js `parseArgs` for argu
 **CRITICAL: Implementation agent MUST read these files before starting any task:**
 
 | Priority | File | Lines | Why Read This |
-|----------|------|-------|---------------|
-| P0 | `dev/remote-coding-agent/packages/cli/src/cli.ts` | 1-281 | Bun CLI pattern to MIRROR exactly |
-| P0 | `dev/remote-coding-agent/packages/cli/package.json` | 1-23 | Package structure to COPY |
-| P1 | `dev/remote-coding-agent/tsconfig.json` | 1-23 | TypeScript config to MIRROR |
-| P1 | `dev/remote-coding-agent/packages/cli/tsconfig.json` | 1-13 | Package-level TS config |
-| P2 | `dev/remote-coding-agent/packages/core/src/index.ts` | 1-287 | Barrel exports pattern |
-| P2 | `dev/poc-codex-extraction/types.ts` | 1-48 | IAssistantClient interface to PORT |
+| --- | --- | --- | --- |
+| P0 | `dev/poc-codex-extraction/types.ts` | 8-37 | Canonical `MessageChunk` + `IAssistantClient` signatures to preserve |
+| P0 | `dev/poc-codex-extraction/main.ts` | 68-106 | Existing CLI control flow and exit handling style |
+| P1 | `dev/poc-codex-extraction/codex.ts` | 34-38, 80-137 | AsyncGenerator contract and fail-loud error wrapping |
+| P1 | `dev/poc-codex-extraction/claude.ts` | 64-90, 99-127 | Streaming iteration and error stderr filtering patterns |
+| P2 | `docs/cia-cli-spec.md` | 10-33, 47-76, 227-234 | Command surface, mode/format rules, required exit codes |
+| P2 | `.claude/PRPs/prds/ciagent-cli-tool.prd.md` | 231-241 | Phase-1 scope and success signal |
 
 **Current External Documentation (Verified Live):**
-
 | Source | Section | Why Needed | Last Verified |
-|--------|---------|------------|---------------|
-| [Bun CLI Build](https://github.com/oven-sh/bun/blob/main/docs/bundler/executables.mdx) ✓ Current | Compile to Binary | Binary distribution | 2026-02-09T23:00:00Z |
-| [Node.js parseArgs](https://github.com/nodejs/node/blob/main/doc/api/util.md) ✓ Current | util.parseArgs API | Argument parsing | 2026-02-09T23:00:00Z |
+| --- | --- | --- | --- |
+| [Bun Executables](https://bun.sh/docs/bundler/executables) ✓ Current | `bun build --compile` | Binary packaging path for phase 10 compatibility | 2026-02-09T21:17:29Z |
+| [Bun Shebang](https://bun.sh/docs/runtime/shebang) ✓ Current | Shebang execution | Correct CLI entrypoint for Bun runtime | 2026-02-09T21:17:29Z |
+| [Commander README](https://github.com/tj/commander.js#asynchronous-action-handlers) ✓ Current | `parseAsync` | Async command actions for future provider calls | 2026-02-09T21:17:29Z |
+| [Commander README](https://github.com/tj/commander.js#required-option) ✓ Current | Required option behavior | Fail-early argument constraints | 2026-02-09T21:17:29Z |
+| [Vitest Coverage Guide](https://vitest.dev/guide/coverage.html) ✓ Current | Coverage execution | Coverage gate wiring (`vitest run --coverage`) | 2026-02-09T21:17:29Z |
+| [Vitest Config (v4.0.7)](https://github.com/vitest-dev/vitest/blob/v4.0.7/docs/config/index.md#coveragethresholds) ✓ Current | `coverage.thresholds` | Enforce PRD phase coverage floor | 2026-02-09T21:17:29Z |
+| [GitHub Advisory Query: commander](https://github.com/advisories?query=ecosystem%3Anpm+commander) ✓ Current | Advisory status | Dependency security check | 2026-02-09T21:17:29Z |
+| [GitHub Advisory Query: vitest](https://github.com/advisories?query=ecosystem%3Anpm+vitest) ✓ Current | Advisory status | Dependency security check | 2026-02-09T21:17:29Z |
+| [GitHub Advisory Query: @openai/codex-sdk](https://github.com/advisories?query=ecosystem%3Anpm+%22%40openai%2Fcodex-sdk%22) ✓ Current | Advisory status | Current project dependency check | 2026-02-09T21:17:29Z |
+| [GitHub Advisory Query: @anthropic-ai/claude-agent-sdk](https://github.com/advisories?query=ecosystem%3Anpm+%22%40anthropic-ai%2Fclaude-agent-sdk%22) ✓ Current | Advisory status | Current project dependency check | 2026-02-09T21:17:29Z |
+| [OWASP Input Validation Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html) ✓ Current | Validation strategy | Argument/context input hardening | 2026-02-09T21:17:29Z |
+| [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) ✓ Current | Secret handling | Avoid key leakage in logs/errors | 2026-02-09T21:17:29Z |
 
 ---
 
 ## Patterns to Mirror
 
-**BRUN_SHEBANG_PATTERN:**
+**NAMING_CONVENTION:**
 ```typescript
-// SOURCE: dev/remote-coding-agent/packages/cli/src/cli.ts:1
-// COPY THIS PATTERN:
-#!/usr/bin/env bun
+// SOURCE: dev/poc-codex-extraction/main.ts:15-16
+function displayChunk(chunk: MessageChunk) {
+  switch (chunk.type) {
 ```
 
-**PARSEARGS_PATTERN:**
 ```typescript
-// SOURCE: dev/remote-coding-agent/packages/cli/src/cli.ts:114-141
-// COPY THIS PATTERN WITH CLI SPEC EXTENSIONS:
-import { parseArgs } from 'util';
+// SOURCE: dev/poc-codex-extraction/main.ts:42-43
+async function testClient(client: IAssistantClient, name: string) {
+  console.log(`\n${'='.repeat(60)}`);
+```
 
+**ERROR_HANDLING:**
+```typescript
+// SOURCE: dev/poc-codex-extraction/main.ts:54-62
 try {
-  parsedArgs = parseArgs({
-    args,
-    options: {
-      help: { type: 'boolean', short: 'h' },
-      version: { type: 'boolean', short: 'v' },
-      // CLI SPEC REQUIRED OPTIONS:
-      mode: { type: 'string', default: 'lazy' }, // lazy|strict
-      format: { type: 'string', default: 'default' }, // default|json
-      provider: { type: 'string', short: 'p', default: 'azure' },
-      model: { type: 'string', short: 'm' },
-      context: { type: 'string', multiple: true },
-      'input-file': { type: 'string' },
-      'schema-file': { type: 'string' },
-      'schema-inline': { type: 'string' },
-      'output-file': { type: 'string', default: 'result.json' },
-      'output-format': { type: 'string' }, // json|yaml|md|text
-      retries: { type: 'string', default: '1' },
-      'retry-backoff': { type: 'boolean', default: true },
-      timeout: { type: 'string', default: '60' },
-      endpoint: { type: 'string' },
-      'api-key': { type: 'string' },
-      'api-version': { type: 'string' },
-      org: { type: 'string' },
-      'log-level': { type: 'string', default: 'INFO' },
-    },
-    allowPositionals: true,
-    strict: false,
-  });
+  for await (const chunk of client.sendQuery(prompt, cwd)) {
+    displayChunk(chunk);
+  }
 } catch (error) {
-  const err = error as Error;
-  console.error(`Error parsing arguments: ${err.message}`);
-  printUsage();
-  return 1; // Exit code 1: Input validation error per CLI spec
+  console.error(`✗ ${name} test failed:`, error);
+  throw error;
 }
 ```
 
-**ENVIRONMENT_CONFIG_PATTERN:**
 ```typescript
-// SOURCE: dev/remote-coding-agent/packages/cli/src/cli.ts:15-25
-// COPY THIS PATTERN:
-import { config } from 'dotenv';
-import { resolve, existsSync } from 'path';
-
-// Load .env from global CIA config only
-const globalEnvPath = resolve(process.env.HOME ?? '~', '.cia', '.env');
-if (existsSync(globalEnvPath)) {
-  const result = config({ path: globalEnvPath });
-  if (result.error) {
-    console.error(`Error loading .env from ${globalEnvPath}: ${result.error.message}`);
-    process.exit(1);
-  }
-}
-```
-
-**ERROR_HANDLING_PATTERN:**
-```typescript
-// SOURCE: dev/remote-coding-agent/packages/cli/src/cli.ts:258-268
-// COPY THIS PATTERN:
+// SOURCE: dev/poc-codex-extraction/codex.ts:133-136
 } catch (error) {
-  const err = error as Error;
-  console.error(`Error: ${err.message}`);
-  if (process.env.DEBUG) {
-    console.error(err.stack);
-  }
-  return 1;
+  console.error('[Codex] Query error:', error);
+  throw new Error(`Codex query failed: ${(error as Error).message}`);
 }
 ```
 
-**PACKAGE_JSON_STRUCTURE:**
-```json
-// SOURCE: dev/remote-coding-agent/packages/cli/package.json:1-23
-// COPY THIS PATTERN:
-{
-  "name": "@ciagent/cli",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "./src/cli.ts",
-  "bin": {
-    "cia": "./src/cli.ts"
-  },
-  "dependencies": {
-    "@ciagent/core": "workspace:*",
-    "dotenv": "^17.2.3"
-  }
-}
-```
-
-**TYPESCRIPT_CONFIG_PATTERN:**
-```json
-// SOURCE: dev/remote-coding-agent/tsconfig.json:1-23
-// COPY THIS PATTERN:
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "lib": ["ES2022"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "bundler",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "types": ["bun-types"]
-  }
-}
-```
-
-**TEST_STRUCTURE:**
+**LOGGING_PATTERN:**
 ```typescript
-// SOURCE: dev/remote-coding-agent/packages/cli/src/commands/version.test.ts:1-57
-// COPY THIS PATTERN:
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
-
-describe('CLI', () => {
-  let consoleSpy: ReturnType<typeof spyOn>;
-
-  beforeEach(() => {
-    consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    consoleSpy.mockRestore();
-  });
-
-  it('should output help text', async () => {
-    // Test implementation
-  });
-});
+// SOURCE: dev/poc-codex-extraction/codex.ts:21-31
+console.log(`[Codex] Loading auth from: ${authPath}`);
+console.log('[Codex] Creating SDK instance...');
+this.codex = new Codex();
+console.log('[Codex] ✓ SDK instance created');
 ```
+
+```typescript
+// SOURCE: dev/poc-codex-extraction/claude.ts:86-88
+if (isError) {
+  console.error(`[Claude stderr] ${output}`);
+}
+```
+
+**TYPE_DEFINITION_PATTERN:**
+```typescript
+// SOURCE: dev/poc-codex-extraction/types.ts:8-14
+export interface MessageChunk {
+  type: 'assistant' | 'result' | 'system' | 'tool' | 'thinking';
+  content?: string;
+  sessionId?: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+}
+```
+
+```typescript
+// SOURCE: dev/poc-codex-extraction/types.ts:27-31
+sendQuery(
+  prompt: string,
+  cwd: string,
+  resumeSessionId?: string
+): AsyncGenerator<MessageChunk>;
+```
+
+**SERVICE_PATTERN (STREAMING CONTRACT):**
+```typescript
+// SOURCE: dev/poc-codex-extraction/claude.ts:99-101
+try {
+  for await (const msg of query({ prompt, options })) {
+```
+
+```typescript
+// SOURCE: dev/poc-codex-extraction/codex.ts:85-86
+for await (const event of result.events) {
+  if (event.type === 'error') {
+```
+
+**TEST_STRUCTURE (CURRENT GAP TO ADDRESS):**
+```typescript
+// SOURCE: docs/cia-cli-spec.md:8-9
+// v1 returns a single response (non-streaming); streaming is deferred to v2+.
+```
+
+The codebase currently has no automated test files outside planning artifacts. Phase 1 must establish the first repeatable Vitest pattern.
+
+---
+
+## Codebase Intelligence Discoveries
+
+| Category | File:Lines | Pattern Description | Code Snippet |
+| --- | --- | --- | --- |
+| ENTRYPOINT | `dev/poc-codex-extraction/main.ts:1` | Bun shebang entry style | `#!/usr/bin/env bun` |
+| CLI FLOW | `dev/poc-codex-extraction/main.ts:68-103` | Parse args, branch by command, explicit `process.exit(1)` on errors | `const clientType = args[0]?.toLowerCase();` |
+| INTERFACE | `dev/poc-codex-extraction/types.ts:20-37` | Provider-neutral contract with async generator | `sendQuery(...): AsyncGenerator<MessageChunk>;` |
+| STREAMING LOOP | `dev/poc-codex-extraction/codex.ts:85-132` | Event-driven chunk translation into internal types | `for await (const event of result.events) { ... }` |
+| LOGGING PREFIX | `dev/poc-codex-extraction/codex.ts:21-31` | Domain-prefixed logs | ``console.log(`[Codex] ...`)`` |
+| STDERR FILTER | `dev/poc-codex-extraction/claude.ts:76-89` | Log only meaningful errors from subprocess stderr | `output.toLowerCase().includes('error')` |
+| MODE RULES | `docs/cia-cli-spec.md:29-33` | strict mode requires schema; lazy mode never enforces | `--mode=strict requires a schema` |
+| EXIT CODES | `docs/cia-cli-spec.md:227-234` | Enumerated non-zero exit codes for failure classes | `3 Authentication/config error` |
+| DEPENDENCIES | `dev/poc-codex-extraction/package.json:6-13` | Existing provider SDK baselines | `@openai/codex-sdk`, `@anthropic-ai/claude-agent-sdk` |
+| RESOLVED DEPS | `dev/poc-codex-extraction (bun pm ls)` | Current installed versions differ from range floor | `@anthropic-ai/claude-agent-sdk@0.2.37` |
+
+---
+
+## Architecture Strategy
+
+APPROACH_CHOSEN: Root-level single-package scaffold (`src/cli.ts` + `src/commands/*` + `src/core/*`) using Commander.js for subcommands and Bun as runtime/build tool.
+
+RATIONALE: This is the smallest path that satisfies Phase 1 scope (`run`, `models`, mode/format parsing, graceful failure) while preserving PoC interface contracts for later phases. Commander provides native subcommand ergonomics needed by the spec, and Bun keeps startup/build expectations aligned with PRD targets.
+
+ALTERNATIVES_REJECTED:
+
+- Node `util.parseArgs` only: rejected because multi-command wiring (`run`, `models`) and required-option UX are cleaner and less error-prone with Commander, matching the PRD CLI-framework decision.
+- Monorepo package split in Phase 1 (`packages/cli`, `packages/core`): rejected as over-scoped for current repository maturity; adds friction before validating baseline UX.
+- Implementing provider execution now: rejected because Phase 1 explicitly targets scaffold behavior and graceful unconfigured-provider failure.
+
+NOT_BUILDING (explicit scope limits):
+
+- Real provider API calls (Codex/Claude/Azure/OpenAI) in this phase.
+- Streaming stdout behavior (explicitly phase 7/v2+ in PRD).
+- MCP/Skills/Tools integration (phase 8).
+- URL context fetching and GitHub API integration (phase 5).
 
 ---
 
 ## Current Best Practices Validation
 
-**Security (Context7 MCP Verified):**
-- ✅ Environment variable handling follows secure patterns
-- ✅ No hardcoded secrets or credentials in code
-- ✅ Proper error handling without information leakage
-- ✅ Binary compilation security practices current
+**Security (Context7 + Web Verified):**
+- [x] Input validation strategy aligned with OWASP guidance before file/URL usage.
+- [x] Secrets are read from env/config and must not be echoed in logs/errors.
+- [x] Dependency advisory checks run via GitHub Advisory Database queries for `commander`, `vitest`, `@openai/codex-sdk`, `@anthropic-ai/claude-agent-sdk`.
+- [x] Fail-loud and explicit exit code mapping prevents silent fallback behavior.
 
-**Performance (Context7 MCP Verified):**
-- ✅ Bun runtime provides <50ms startup (confirmed 2026 docs)
-- ✅ parseArgs is faster than Commander.js for simple parsing
-- ✅ Lazy loading patterns for optional dependencies
-- ✅ Memory-efficient argument processing
+**Performance (Current Guidance Verified):**
+- [x] Bun executable compilation path (`bun build --compile`) confirmed current.
+- [x] Async command parsing via Commander `parseAsync` avoids blocking future provider calls.
+- [x] Scope kept minimal in phase 1 to preserve startup overhead budget (<100ms overall target measured later in phase 9).
 
 **Community Intelligence:**
-- ✅ Bun CLI patterns align with current community practices
-- ✅ parseArgs is the recommended Node.js built-in (stable since v16)
-- ✅ TypeScript strict mode configuration follows 2026 standards
-- ✅ Monorepo workspace patterns are current standard
+- [x] Commander maintainers recommend `parseAsync` when actions are async.
+- [x] Commander 14.0.1 latest patch observed in release feed; pinning to latest patch avoids known regression churn.
+- [x] Vitest v4 docs confirm built-in threshold controls and `vitest run --coverage` command path.
+- [x] No conflicting community evidence found that contradicts chosen scaffold approach.
 
 ---
 
 ## Files to Change
 
-| File                             | Action | Justification                            |
-| -------------------------------- | ------ | ---------------------------------------- |
-| `package.json`                   | CREATE | Root workspace configuration             |
-| `tsconfig.json`                  | CREATE | Root TypeScript configuration            |
-| `packages/cli/package.json`      | CREATE | CLI package configuration                |
-| `packages/cli/tsconfig.json`     | CREATE | CLI TypeScript overrides                |
-| `packages/cli/src/cli.ts`        | CREATE | Main CLI entry point with full spec     |
-| `packages/cli/src/commands/help.ts` | CREATE | Help command with detailed spec usage |
-| `packages/cli/src/commands/version.ts` | CREATE | Version command implementation      |
-| `packages/cli/src/config/loader.ts` | CREATE | Config hierarchy: CLI > repo > user > env |
-| `packages/cli/src/utils/exit-codes.ts` | CREATE | CLI spec exit codes (0-5)           |
-| `packages/cli/src/utils/validation.ts` | CREATE | Input validation for CLI spec        |
-| `packages/cli/src/cli.test.ts`   | CREATE | CLI argument parsing tests (UNIT)       |
-| `packages/cli/src/integration.test.ts` | CREATE | CLI workflow tests (INTEGRATION)   |
-| `packages/cli/src/e2e.test.ts`   | CREATE | End-to-end CLI tests (E2E)              |
+| File | Action | Justification |
+| --- | --- | --- |
+| `package.json` | CREATE | Root CLI package manifest, scripts, bin mapping |
+| `tsconfig.json` | CREATE | Strict TypeScript baseline for CLI code |
+| `Makefile` | CREATE | Standardized quality gates (`lint`, `type-check`, `test`, `build`, `ci`) |
+| `.githooks/pre-push` | CREATE | Mandatory guard to run `make ci` before push |
+| `vitest.config.ts` | CREATE | Coverage gate and test defaults |
+| `src/cli.ts` | CREATE | Bun shebang + root Commander program bootstrap |
+| `src/commands/run.ts` | CREATE | `cia run` command, mode/format/schema validation |
+| `src/commands/models.ts` | CREATE | `cia models` command scaffold |
+| `src/core/config.ts` | CREATE | Env/config loading and precedence rules |
+| `src/core/errors.ts` | CREATE | Typed error classes and exit-code mapping |
+| `src/core/exit-codes.ts` | CREATE | Canonical numeric exit codes from CLI spec |
+| `src/core/types.ts` | CREATE | Shared CLI option/result types |
+| `tests/cli.test.ts` | CREATE | End-to-end command routing tests (spawn-like) |
+| `tests/run-command.test.ts` | CREATE | Mode/format validation unit tests |
+| `README.md` | UPDATE | Replace stub with phase-1 quickstart and examples |
+| `.claude/PRPs/prds/ciagent-cli-tool.prd.md` | UPDATE | Mark phase 1 in-progress and link plan |
 
 ---
 
@@ -305,225 +298,154 @@ describe('CLI', () => {
 
 Explicit exclusions to prevent scope creep:
 
-- **Provider integrations** - Handled in Phase 2+ (provider abstraction required first)
-- **Actual LLM execution** - `cia run` will fail gracefully with "No provider configured" error (EXCEPT E2E tests)
-- **Context file/URL fetching** - Handled in Phase 5 (needs provider framework)  
-- **Schema enforcement logic** - Handled with provider integration phases
-- **JSON conversation input parsing** - Basic structure only, full parsing in provider phases
-- **MCP/Skills/Tools** - Handled in Phase 8 (advanced features)
-- **Docker packaging** - Handled in Phase 10 (packaging phase)
-- **OAuth authentication flow** - Basic structure only, implementation in provider phases
-
-**Exception for E2E Testing**: E2E tests WILL include real Codex SDK integration using ~/.codex/auth.json to validate the complete user experience and ensure the CLI architecture supports real provider integration.
+- No provider factory or concrete provider clients in this phase.
+- No context ingestion implementation (`--context` accepted/validated only if needed for parser completeness, not executed).
+- No schema retry loop against LLM providers (strict-mode checks are local argument validation only).
 
 ---
-
-## Step-by-Step Tasks
 
 ## Step-by-Step Tasks
 
 Execute in order. Each task is atomic and independently verifiable.
 
-### Task 1: CREATE `package.json` (root workspace)
+### Task 1: CREATE `package.json`
 
-- **ACTION**: CREATE root package.json with Bun workspace configuration
-- **IMPLEMENT**: Monorepo setup with workspace packages, Bun scripts, CLI dev command
-- **MIRROR**: `dev/remote-coding-agent/package.json:1-46` - follow workspace pattern
-- **IMPORTS**: None - root configuration file
-- **GOTCHA**: Use `"type": "module"` for ESM, `workspaces: ["packages/*"]`
-- **CURRENT**: Bun workspace format verified as current in 2026 docs
-- **VALIDATE**: `bun --version` - ensure Bun >=1.0.0 available
+- **ACTION**: Define CLI package, `bin` mapping, scripts
+- **IMPLEMENT**: `name`, `version`, `type`, `bin.cia`, scripts: `lint`, `type-check`, `test`, `build`, `ci`
+- **MIRROR**: `dev/poc-codex-extraction/package.json:1-14` for minimal manifest style
+- **IMPORTS/DEPS**: `commander`, `vitest`, `typescript`, `@types/bun`, `@types/node`
+- **GOTCHA**: Keep scripts deterministic; no hidden fallback commands
+- **CURRENT**: Commander latest from npm registry dist-tag (`14.0.1`), Vitest v4 docs
+- **VALIDATE**: `bun run --bun --help >/dev/null`
 
-### Task 2: CREATE `tsconfig.json` (root)
+### Task 2: CREATE `tsconfig.json`
 
-- **ACTION**: CREATE root TypeScript configuration with strict mode
-- **IMPLEMENT**: ES2022 target, ESNext modules, strict mode, Bun types
-- **MIRROR**: `dev/remote-coding-agent/tsconfig.json:1-23`
-- **IMPORTS**: None - configuration file
-- **TYPES**: Include `bun-types` for Bun runtime types
-- **GOTCHA**: Use `"moduleResolution": "bundler"` for Bun compatibility
-- **CURRENT**: TypeScript 5.x configuration patterns verified current
-- **VALIDATE**: `bun tsc --noEmit` - types must compile without errors
+- **ACTION**: Add strict compiler config for Bun + Node types
+- **IMPLEMENT**: ES2022 target/module, strict mode, no unused locals/params, moduleResolution `bundler`
+- **MIRROR**: `dev/poc-codex-extraction/types.ts:8-37` (strict typing expectations)
+- **GOTCHA**: Include both `bun-types` and `node` where needed; avoid implicit `any`
+- **CURRENT**: Bun docs recommend TypeScript first-class support
+- **VALIDATE**: `bunx tsc --noEmit`
 
-### Task 3: CREATE `packages/cli/package.json`
+### Task 3: CREATE `Makefile`
 
-- **ACTION**: CREATE CLI package configuration with binary entry
-- **IMPLEMENT**: Package name, bin entry, workspace dependencies, test scripts
-- **MIRROR**: `dev/remote-coding-agent/packages/cli/package.json:1-23`
-- **IMPORTS**: `dotenv` for environment config, JSON Schema validator
-- **BINARY**: `"bin": { "cia": "./src/cli.ts" }` for global install
-- **GOTCHA**: Use `workspace:*` for internal dependencies
-- **CURRENT**: Package.json binary field pattern verified current
-- **VALIDATE**: `bun install` - dependencies resolve correctly
+- **ACTION**: Add mandatory build/test automation entrypoints
+- **IMPLEMENT**: `lint`, `type-check`, `test`, `build`, `ci` targets where `ci` composes all quality gates
+- **MIRROR**: AGENTS mandatory rules (`Never skip tests`, `Linting and testing have to pass`)
+- **GOTCHA**: Fail fast on first failing step; no silent fallbacks
+- **CURRENT**: Keep recipes portable for Bun-based projects
+- **VALIDATE**: `make ci`
 
-### Task 4: CREATE `packages/cli/tsconfig.json`
+### Task 4: CREATE `.githooks/pre-push`
 
-- **ACTION**: CREATE CLI TypeScript configuration extending root
-- **IMPLEMENT**: Package-specific paths, exclude patterns, includes
-- **MIRROR**: `dev/remote-coding-agent/packages/cli/tsconfig.json:1-13`
-- **EXTENDS**: `"extends": "../../tsconfig.json"`
-- **PATHS**: Workspace path mapping when core package exists
-- **GOTCHA**: Include test files in development, exclude in build
-- **CURRENT**: TSConfig extends pattern verified current
-- **VALIDATE**: `bun tsc --noEmit` - CLI package types compile
+- **ACTION**: Add mandatory pre-push hook that runs `make ci`
+- **IMPLEMENT**: executable shell hook with `set -eu` and `make ci`
+- **MIRROR**: Fail-loud style from existing PoC error handling
+- **GOTCHA**: Also document/execute `git config core.hooksPath .githooks` in setup so hook is active
+- **CURRENT**: Keep hook simple and deterministic
+- **VALIDATE**: `chmod +x .githooks/pre-push && git config core.hooksPath .githooks && .githooks/pre-push`
 
-### Task 5: CREATE `packages/cli/src/utils/exit-codes.ts`
+### Task 5: CREATE `src/core/exit-codes.ts` and `src/core/errors.ts`
 
-- **ACTION**: CREATE CLI spec exit codes constants
-- **IMPLEMENT**: Exit codes 0-5 as specified in docs/cia-cli-spec.md
-- **MIRROR**: None - new requirement from CLI spec
-- **PATTERN**: Export const enum with descriptive names
-- **CODES**: SUCCESS=0, INPUT_VALIDATION=1, SCHEMA_VALIDATION=2, AUTH_CONFIG=3, LLM_EXECUTION=4, TIMEOUT=5
-- **CURRENT**: TypeScript const enum pattern is current best practice
-- **VALIDATE**: `bun tsc --noEmit` - types compile correctly
+- **ACTION**: Encode spec exit-code contract and typed errors
+- **IMPLEMENT**: constants `SUCCESS`, `INPUT_ERROR`, `SCHEMA_ERROR`, `AUTH_ERROR`, `LLM_ERROR`, `TIMEOUT`; domain errors with `exitCode`
+- **MIRROR**: `docs/cia-cli-spec.md:227-234` and PoC fail-loud catch blocks
+- **GOTCHA**: Never collapse all failures to `1`; preserve semantic codes
+- **CURRENT**: Security guidance favors explicit failure classes
+- **VALIDATE**: `bunx tsc --noEmit`
 
-### Task 6: CREATE `packages/cli/src/config/loader.ts`
+### Task 6: CREATE `src/core/config.ts`
 
-- **ACTION**: CREATE configuration hierarchy loader
-- **IMPLEMENT**: CLI flags > repo config > user config > env vars (per CLI spec)
-- **MIRROR**: `dev/remote-coding-agent/packages/core/src/config/config-loader.ts:1-347`
-- **HIERARCHY**: 1. CLI flags, 2. `.cia/config.json` (repo), 3. `~/.cia/config.json` (user), 4. Environment variables
-- **PATTERN**: Merge configs with priority order, validate required fields
-- **GOTCHA**: Handle missing config files gracefully, secure env var access
-- **VALIDATE**: Config loading works with and without config files
+- **ACTION**: Implement config precedence and env parsing
+- **IMPLEMENT**: CLI flags > `.cia/config.json` (repo/home) > env fallback, with clear missing-key errors
+- **MIRROR**: `docs/cia-cli-spec.md:81-96`
+- **GOTCHA**: Do not print raw tokens in logs; redact values
+- **CURRENT**: OWASP secrets-management guidance
+- **VALIDATE**: `bun test tests/config.test.ts` (created in same phase if needed)
 
-### Task 7: CREATE `packages/cli/src/utils/validation.ts`
+### Task 7: CREATE `src/core/types.ts`
 
-- **ACTION**: CREATE input validation utilities
-- **IMPLEMENT**: Validate mode (lazy|strict), format (default|json), schema requirements
-- **PATTERN**: Pure functions returning validation results with error messages
-- **CLI_SPEC**: Mode=strict requires schema-file or schema-inline, exit code 1 for validation errors
-- **VALIDATION**: Provider names, model formats, file existence, JSON schema format
-- **CURRENT**: Input validation patterns follow current TypeScript practices
-- **VALIDATE**: All validation functions work correctly with edge cases
+- **ACTION**: Define CLI command option types and run payload contracts
+- **IMPLEMENT**: `RunMode`, `OutputFormat`, `ProviderName`, `RunCommandOptions`
+- **MIRROR**: `dev/poc-codex-extraction/types.ts:8-37`
+- **GOTCHA**: Keep union literals aligned to spec provider list
+- **CURRENT**: Type unions reduce invalid runtime states
+- **VALIDATE**: `bunx tsc --noEmit`
 
-### Task 8: CREATE `packages/cli/src/cli.ts` (FULL CLI SPEC)
+### Task 8: CREATE `src/commands/run.ts`
 
-- **ACTION**: CREATE main CLI entry point with complete CLI spec implementation
-- **IMPLEMENT**: Full parseArgs setup, config hierarchy, validation, error handling per CLI spec
-- **MIRROR**: `dev/remote-coding-agent/packages/cli/src/cli.ts:1-281` structure
-- **CLI_SPEC**: All flags from docs/cia-cli-spec.md, proper exit codes, mode/format handling
-- **PATTERN**: Use config loader, validation utils, proper exit codes
-- **RUN_COMMAND**: Accept but fail gracefully with "No provider configured" (exit code 3)
-- **CURRENT**: Full CLI spec implementation with current parseArgs patterns
-- **VALIDATE**: `bun packages/cli/src/cli.ts --help` and `cia run --mode=strict` validation
+- **ACTION**: Implement `run` command parser and phase-1 placeholder execution
+- **IMPLEMENT**: parse prompt/input, enforce mode/format matrix preconditions, return "No provider configured" path for execution
+- **MIRROR**: `dev/poc-codex-extraction/main.ts:68-103` (control flow + exits)
+- **GOTCHA**: enforce strict mode schema requirement from spec lines 31-33
+- **CURRENT**: Commander required options and async action guidance
+- **VALIDATE**: `bun test tests/run-command.test.ts`
 
-### Task 9: CREATE `packages/cli/src/commands/help.ts`
+### Task 9: CREATE `src/commands/models.ts`
 
-- **ACTION**: CREATE help command with complete CLI spec usage
-- **IMPLEMENT**: Full CLI spec documentation, all flags, examples, mode explanations
-- **MIRROR**: `dev/remote-coding-agent/packages/cli/src/cli.ts:52-82` - printUsage function
-- **CLI_SPEC**: Document all flags from docs/cia-cli-spec.md with examples
-- **PATTERN**: Export function that prints to stdout, exit code 0
-- **EXAMPLES**: Include mode/format combinations, schema usage, context examples
-- **VALIDATE**: `cia --help` displays complete CLI spec documentation
+- **ACTION**: Implement `models` command scaffold output
+- **IMPLEMENT**: deterministic placeholder list or explicit not-configured message with non-zero exit when no provider context
+- **MIRROR**: `dev/poc-codex-extraction/main.ts:77-93` (branching/usage response)
+- **GOTCHA**: maintain scripting-friendly plain text + optional JSON output compatibility path
+- **CURRENT**: CLI ergonomics from Commander docs
+- **VALIDATE**: `bun test tests/cli.test.ts -t "models"`
 
-### Task 10: CREATE `packages/cli/src/commands/version.ts`
+### Task 10: CREATE `src/cli.ts`
 
-- **ACTION**: CREATE version command with system information
-- **IMPLEMENT**: Package version, Bun version, Node.js compatibility, OS info
-- **MIRROR**: `dev/remote-coding-agent/packages/cli/src/commands/version.test.ts:1-57` test pattern
-- **PATTERN**: Export async function, use process.versions and Bun.version
-- **FORMAT**: `ciagent v0.1.0`, `Bun v1.x.x`, `Platform: linux-x64`
-- **CURRENT**: Bun.version API is current and stable
-- **VALIDATE**: `cia --version` displays version and system info
+- **ACTION**: Wire root command, subcommands, help/version, and centralized error handling
+- **IMPLEMENT**: shebang, `.name('cia')`, `.version(...)`, attach `run` and `models`, `await program.parseAsync(process.argv)`
+- **MIRROR**: `dev/poc-codex-extraction/main.ts:68-106` plus Commander parseAsync pattern
+- **GOTCHA**: ensure unknown command exits with input-validation code
+- **CURRENT**: Commander async action handler recommendation
+- **VALIDATE**: `bun src/cli.ts --help && bun src/cli.ts --version`
 
-### Task 11: CREATE UNIT TESTS (70% of test pyramid)
+### Task 11: CREATE `vitest.config.ts` and initial tests
 
-- **ACTION**: CREATE comprehensive unit tests for CLI components
-- **IMPLEMENT**: Test all modules individually with mocks/stubs
-- **FILES**: 
-  - `packages/cli/src/cli.test.ts` - Main CLI parsing and routing
-  - `packages/cli/src/config/loader.test.ts` - Configuration hierarchy
-  - `packages/cli/src/utils/validation.test.ts` - Input validation
-  - `packages/cli/src/commands/help.test.ts` - Help output
-  - `packages/cli/src/commands/version.test.ts` - Version output
-- **PATTERN**: Use Bun test with mocks, cover happy path + error cases
-- **COVERAGE**: Target >80% line coverage, test all CLI spec requirements
-- **VALIDATE**: `bun test` passes, coverage report shows >80%
+- **ACTION**: Configure Vitest + coverage threshold and write baseline tests
+- **IMPLEMENT**: coverage enabled, thresholds >=40% (phase minimum), tests for help/version/run strict mode guard
+- **MIRROR**: PRD phase-1 testing requirement and spec mode rules
+- **GOTCHA**: avoid flaky tests that call real provider networks
+- **CURRENT**: Vitest v4 `coverage.thresholds`
+- **VALIDATE**: `bunx vitest run --coverage`
 
-### Task 12: CREATE INTEGRATION TESTS (20% of test pyramid)
+### Task 12: UPDATE `README.md`
 
-- **ACTION**: CREATE integration tests for CLI workflows
-- **IMPLEMENT**: Test component interactions without external dependencies
-- **FILE**: `packages/cli/src/integration.test.ts`
-- **SCENARIOS**: Config loading + validation + CLI parsing, mode/format combinations, error propagation
-- **PATTERN**: Test real file I/O, config hierarchy, cross-module integration
-- **NO_EXTERNAL**: Mock any external APIs, focus on internal component integration
-- **VALIDATE**: Integration tests pass, realistic workflow scenarios work
+- **ACTION**: Document install/run basics and current phase limitations
+- **IMPLEMENT**: quickstart commands, flags summary, explicit note that providers are scaffold-only in phase 1
+- **MIRROR**: `dev/poc-codex-extraction/README.md:32-46` concise usage style
+- **GOTCHA**: do not promise implemented provider features yet
+- **VALIDATE**: `rg -n "cia run|cia models|phase" README.md`
 
-### Task 13: CREATE END-TO-END TESTS (10% of test pyramid) 
+### Task 13: Final integration validation
 
-- **ACTION**: CREATE end-to-end CLI tests with real Codex SDK authentication
-- **IMPLEMENT**: Test actual CLI binary execution with real auth from ~/.codex/auth.json
-- **FILE**: `packages/cli/src/e2e.test.ts` 
-- **SCENARIOS**: 
-  - Binary execution with real Codex authentication
-  - `cia run "Hello world"` with streaming response
-  - Error handling when auth is missing/invalid
-  - Global install and execution workflows
-- **AUTHENTICATION**: Use real `~/.codex/auth.json` file for authentic integration testing
-- **PATTERN**: Spawn actual CLI processes, test stdout/stderr, exit codes with real API calls
-- **REAL_INTEGRATION**: Test with Codex SDK, verify streaming works, validate response format
-- **GATED**: Run only when `RUN_E2E_TESTS=1` environment variable set (requires valid auth)
-- **VALIDATE**: E2E tests pass with real Codex responses, CLI works as user would experience
+- **ACTION**: Run full static + test + build sequence
+- **IMPLEMENT**: execute validation ladder and fix failures before completion
+- **MIRROR**: fail-loud principle from repo instructions
+- **GOTCHA**: no skipped tests, no `|| true`
+- **CURRENT**: current docs + advisory status reconfirmed before finish
+- **VALIDATE**: `bun run ci`
 
 ---
 
-## Testing Strategy (CLI Spec + Test Pyramid Compliant)
+## Testing Strategy
 
-### Test Pyramid Distribution (Per PRD Requirements)
+### Unit Tests to Write
 
-**Unit Tests (70%)**:
-- CLI argument parsing and validation
-- Configuration hierarchy loading  
-- Individual command implementations
-- Utility functions (validation, exit codes)
-- Mocked external dependencies
-
-**Integration Tests (20%)**:
-- Config loading + CLI parsing workflows
-- Cross-module component interactions
-- Mode/format combination scenarios
-- Error propagation between layers
-
-**End-to-End Tests (10%)**:
-- Actual binary execution with real Codex SDK authentication
-- Global installation workflows  
-- Real user interaction scenarios with ~/.codex/auth.json
-- Complete CLI spec compliance with real API responses
-- Streaming validation with actual Codex service
-
-### Unit Tests Coverage
-
-| Test File                                | Test Cases                      | Validates         | Pyramid Layer |
-| ---------------------------------------- | ------------------------------- | ----------------- | ------------- |
-| `packages/cli/src/cli.test.ts`           | parseArgs, routing, exit codes  | Main CLI logic    | Unit (70%)    |
-| `packages/cli/src/config/loader.test.ts` | Config hierarchy, merging       | Configuration     | Unit (70%)    |
-| `packages/cli/src/utils/validation.test.ts` | Input validation, schema checks | Validation logic  | Unit (70%)    |
-| `packages/cli/src/commands/help.test.ts` | Help output formatting          | Help content      | Unit (70%)    |
-| `packages/cli/src/commands/version.test.ts` | Version info accuracy         | Version output    | Unit (70%)    |
-| `packages/cli/src/integration.test.ts`   | Component interactions          | Workflow logic    | Integration (20%) |
-| `packages/cli/src/e2e.test.ts`           | Binary execution, real Codex authentication | Complete CLI spec + Real API | End-to-End (10%) |
-
-### CLI Spec Compliance Checklist
-
-- ✅ All CLI spec flags implemented in parseArgs
-- ✅ Mode (lazy|strict) and format (default|json) handling
-- ✅ Configuration hierarchy: CLI > repo > user > env
-- ✅ Exit codes 0-5 per specification  
-- ✅ Input validation with proper error messages
-- ✅ Help displays complete CLI spec documentation
-- ✅ Schema file validation structure (implementation deferred)
+| Test File | Test Cases | Validates |
+| --- | --- | --- |
+| `tests/cli.test.ts` | help/version/unknown command | Root routing and exit behavior |
+| `tests/run-command.test.ts` | lazy vs strict guards, schema requirement, format parsing | Spec-compliant argument validation |
+| `tests/config.test.ts` | env fallback, config file precedence, secret redaction | Configuration safety and correctness |
 
 ### Edge Cases Checklist
 
-- ✅ Unknown command arguments  
-- ✅ Invalid flag combinations
-- ✅ Missing environment permissions
-- ✅ Bun runtime not available
-- ✅ Workspace dependency resolution
-- ✅ Binary execution permissions
+- [ ] Empty prompt with no `--input-file`
+- [ ] `--mode strict` without schema input
+- [ ] Invalid `--format` value
+- [ ] Unknown provider name
+- [ ] Missing auth env for selected provider
+- [ ] Invalid JSON in `.cia/config.json`
+- [ ] Home config exists but unreadable
 
 ---
 
@@ -532,123 +454,107 @@ Execute in order. Each task is atomic and independently verifiable.
 ### Level 1: STATIC_ANALYSIS
 
 ```bash
-bun run type-check && bun run lint
+bun run lint && bun run type-check
 ```
 
-**EXPECT**: Exit 0, no errors or warnings
+**EXPECT**: Exit 0, no lint/type errors
 
 ### Level 2: UNIT_TESTS
 
 ```bash
-bun test packages/cli/src/
+bun run test
 ```
 
-**EXPECT**: All tests pass, coverage >= 80%
+**EXPECT**: All unit tests pass
 
 ### Level 3: FULL_SUITE
 
 ```bash
-bun test && bun run build
+bun run test && bun run build
 ```
 
-**EXPECT**: All tests pass, build succeeds
+**EXPECT**: Tests pass, build succeeds
 
-### Level 4: BINARY_VALIDATION
+### Level 4: DATABASE_VALIDATION (if schema changes)
 
-```bash
-bun build --compile --target=bun-linux-x64 --outfile=./dist/cia packages/cli/src/cli.ts
-./dist/cia --help
-./dist/cia --version
-```
+Not applicable for Phase 1.
 
-**EXPECT**: Binary runs, help/version output correct
+### Level 5: BROWSER_VALIDATION (if UI changes)
 
-### Level 5: INSTALL_VALIDATION
-
-```bash
-bun link packages/cli
-cia --help
-cia --version
-```
-
-**EXPECT**: Global install works, commands execute
+Not applicable for Phase 1.
 
 ### Level 6: CURRENT_STANDARDS_VALIDATION
 
-Use Context7 MCP to verify:
-- ✅ Bun CLI patterns follow current best practices
-- ✅ parseArgs usage aligns with Node.js documentation
-- ✅ TypeScript configuration uses current standards
-- ✅ Package.json structure follows current conventions
+```bash
+bun run test && bunx vitest run --coverage
+```
+
+**EXPECT**: Coverage threshold met and no deprecated API usage
 
 ### Level 7: MANUAL_VALIDATION
 
-1. **Help Command**: Run `cia --help` and verify complete usage information
-2. **Version Command**: Run `cia --version` and verify version + system info
-3. **Error Handling**: Run `cia badcommand` and verify graceful error message
-4. **Run Stub**: Run `cia run "test"` and verify "No provider configured" error
+1. Run `bun src/cli.ts --help` and confirm `run` + `models` commands appear.
+2. Run `bun src/cli.ts --version` and confirm semantic version output.
+3. Run `bun src/cli.ts run "test"` with no provider env and confirm explicit "No provider configured" error.
+4. Run `bun src/cli.ts run --mode strict "test"` without schema and confirm strict validation error + proper exit code.
 
 ---
 
 ## Acceptance Criteria
 
-- ✅ All specified functionality implemented per user story
-- ✅ Level 1-3 validation commands pass with exit 0
-- ✅ Unit tests cover >= 80% of new code
-- ✅ Code mirrors existing patterns exactly (naming, structure, error handling)
-- ✅ No regressions in existing tests (none exist yet)
-- ✅ UX matches "After State" diagram
-- ✅ **Implementation follows current best practices**
-- ✅ **No deprecated patterns or vulnerable dependencies**
-- ✅ **Security recommendations up-to-date**
-- ✅ **Startup time <50ms on Bun runtime**
+- [ ] `cia --help` and `cia --version` work through Bun entrypoint
+- [ ] `cia run "test"` fails gracefully with explicit unconfigured-provider message
+- [ ] Mode/format parsing and strict-schema requirement follow `docs/cia-cli-spec.md`
+- [ ] Level 1-3 validations pass with exit 0
+- [ ] Coverage baseline meets or exceeds 40% (phase minimum)
+- [ ] Naming, error, and streaming contracts mirror PoC patterns
+- [ ] No deprecated patterns introduced in scaffold
+- [ ] Security guidance (input validation + secrets handling) applied
 
 ---
 
 ## Completion Checklist
 
-- [ ] All tasks completed in dependency order
-- [ ] Each task validated immediately after completion
-- [ ] Level 1: Static analysis (type-check + lint) passes
-- [ ] Level 2: Unit tests pass
-- [ ] Level 3: Full test suite + build succeeds
-- [ ] Level 4: Binary compilation and execution works
-- [ ] Level 5: Global install and CLI commands work
-- [ ] Level 6: Current standards validation passes
-- [ ] All acceptance criteria met
+- [ ] Tasks executed in dependency order
+- [ ] Validation run after each task block
+- [ ] Lint + type-check pass
+- [ ] Unit tests pass
+- [ ] Build succeeds
+- [ ] Current docs/advisories re-checked at completion
+- [ ] PRD phase table updated with plan path
 
 ---
 
 ## Real-time Intelligence Summary
 
-**Context7 MCP Queries Made**: 2 (Bun runtime, Node.js parseArgs)
-**Web Intelligence Sources**: 0 (Context7 provided sufficient current information)
-**Last Verification**: 2026-02-09T23:00:00Z
-**Security Advisories Checked**: 1 (Bun binary compilation security)
-**Deprecated Patterns Avoided**: Commander.js (parseArgs is built-in and faster)
+**Context7 MCP Queries Made**: 3 (`/oven-sh/bun`, `/tj/commander.js`, `/vitest-dev/vitest/v4.0.7`)
+**Web Intelligence Sources Consulted**: 15 (official docs, npm registry metadata, GitHub advisories, community Q&A)
+**Last Verification**: 2026-02-09T21:17:29Z
+**Security Advisory Checks Performed**: 4 package-specific GitHub Advisory queries
+**Deprecated Patterns Avoided**: silent fallback auth behavior, implicit mode coercion, non-semantic exit codes
 
 ---
 
 ## Risks and Mitigations
 
-| Risk               | Likelihood   | Impact       | Mitigation                              |
-| ------------------ | ------------ | ------------ | --------------------------------------- |
-| Bun version compatibility | LOW | MEDIUM | Pin to Bun >=1.0.0 in engines field |
-| parseArgs Node.js compatibility | LOW | LOW | parseArgs stable since Node 16, Bun compatible |
-| Workspace resolution issues | MEDIUM | LOW | Test workspace dependencies in CI |
-| Binary permissions on CI/CD | MEDIUM | MEDIUM | Document chmod +x in installation guide |
-| Memory usage on Pi 3 | LOW | HIGH | Lazy load modules, benchmark early |
+| Risk | Likelihood | Impact | Mitigation |
+| --- | --- | --- | --- |
+| Scaffold command surface drifts from CLI spec | MEDIUM | HIGH | Lock to spec lines `10-76`, add parser tests for each rule |
+| Commander major behavior changes in future | LOW | MEDIUM | Pin exact major/minor and keep parse behavior covered with tests |
+| Secret leakage in error logs | MEDIUM | HIGH | Centralize error formatting with redaction in `config.ts`/`errors.ts` |
+| Startup overhead grows unexpectedly | MEDIUM | MEDIUM | Keep phase 1 minimal, benchmark in phase 9, avoid eager provider imports |
+| Dependency advisories appear during implementation | LOW | HIGH | Re-run advisory queries before merge and update versions if needed |
 
 ---
 
 ## Notes
 
+- `CLAUDE.md` was not present at repo root during planning; AGENTS.md instructions were used as the governing local policy.
+- Existing file `.claude/PRPs/plans/core-cli-scaffold.old` contains references to `dev/remote-coding-agent/...` paths that do not exist in this repository; this new plan removes those invalid dependencies.
+- `dev/poc-codex-extraction/package.json` declares `@anthropic-ai/claude-agent-sdk` at `^0.2.7` but resolved installation is `0.2.37` (`bun pm ls`), so implementation should pin exact versions for reproducibility.
+
 ### Current Intelligence Considerations
 
-**Bun Runtime Evolution (2026)**: Bun 1.x is stable and production-ready. Binary compilation feature is mature with cross-platform support. Startup performance consistently <50ms makes it ideal for CLI tools.
-
-**parseArgs vs Commander.js**: Node.js built-in parseArgs is faster and has zero dependencies. The existing codebase successfully uses this pattern, eliminating the need for Commander.js which was specified in the PRD but is not actually used in the working code.
-
-**Monorepo Strategy**: Following existing patterns with workspace packages enables clean separation between CLI and core packages for future provider integrations.
-
-**Testing Framework**: Bun's built-in test runner is fast and compatible with existing patterns. No need for additional testing dependencies.
+- Commander latest dist-tag is `14.0.1`; use this patch level for stability.
+- Vitest documentation currently includes v4.0.7 config semantics for coverage thresholds.
+- Bun executable compilation and shebang docs are current and align with planned packaging path.
