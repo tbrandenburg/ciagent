@@ -8,4 +8,5 @@
 - Boy-scout rule: Always leave the campground cleaner as it was before! If tests fail, care about them! No matter if you touched them or not!
 - Fail loud and early! Prevent fall-backs and silent failures
 - Never skip tests!
+- Keep test suites lean for CI performance: Prefer a low number of high-signal tests that catch real regressions over many repetitive low-value tests
 - Strive for quality! Linting and testing have to pass!
