@@ -8,9 +8,13 @@ import { ExitCode } from '../utils/exit-codes.js';
 export async function runCommand(args: string[], config: CIAConfig): Promise<number> {
   const hasPrompt = args.length > 0 && args.join(' ').trim().length > 0;
   const hasInputFile = Boolean(config['input-file']);
+  const hasStdin = (process as any).stdin.isTTY === false;
 
-  if (!hasPrompt && !hasInputFile) {
-    const error = CommonErrors.invalidArgument('prompt', 'a positional prompt or --input-file');
+  if (!hasPrompt && !hasInputFile && !hasStdin) {
+    const error = CommonErrors.invalidArgument(
+      'prompt',
+      'a positional prompt, --input-file, or stdin pipe'
+    );
     printError(error);
     return error.code;
   }
@@ -203,6 +207,16 @@ function resolvePrompt(args: string[], config: CIAConfig): string {
 
   if (config['input-file']) {
     return readFileSync(config['input-file'], 'utf8').trim();
+  }
+
+  // Read from stdin if no args or file provided and stdin has data
+  if ((process as any).stdin.isTTY === false) {
+    try {
+      return readFileSync('/dev/stdin', 'utf8').trim();
+    } catch (error) {
+      // If stdin reading fails, return empty to trigger validation error
+      return '';
+    }
   }
 
   return '';
