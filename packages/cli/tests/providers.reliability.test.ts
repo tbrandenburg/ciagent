@@ -61,10 +61,11 @@ describe('ReliableAssistantChat', () => {
 
   beforeEach(() => {
     mockProvider = new MockProvider();
+    // Fast configuration for tests - preserves retry logic but with minimal delays
     config = {
       retries: 3,
-      'retry-backoff': true,
-      'retry-timeout': 5000,
+      'retry-backoff': false, // Disable exponential backoff in tests
+      'retry-timeout': 1000, // Reduce max timeout from 5000ms to 1000ms
       'contract-validation': false,
     };
     reliableProvider = new ReliableAssistantChat(mockProvider, config);
@@ -72,6 +73,8 @@ describe('ReliableAssistantChat', () => {
 
   afterEach(() => {
     // Reset mock provider state
+    mockProvider.setShouldThrow(false);
+    mockProvider.setChunks([]);
   });
 
   describe('Basic Functionality', () => {
@@ -235,36 +238,67 @@ describe('ReliableAssistantChat', () => {
       expect(mockProvider.getCallCount()).toBe(4); // Should retry error chunks (original + 3 retries)
     }, 15000);
 
-    it('should handle different error types appropriately', async () => {
-      const testCases = [
-        { error: 'authentication failed', shouldRetry: false },
-        { error: 'unauthorized access', shouldRetry: false },
-        { error: 'not found', shouldRetry: false },
-        { error: 'network timeout', shouldRetry: true },
-        { error: 'connection refused', shouldRetry: true },
-      ];
-
-      for (const testCase of testCases) {
-        mockProvider = new MockProvider();
-        reliableProvider = new ReliableAssistantChat(mockProvider, config);
-        mockProvider.setShouldThrow(true, testCase.error);
+    describe('Error Type Handling', () => {
+      it('should not retry authentication errors', async () => {
+        mockProvider.setShouldThrow(true, 'authentication failed');
 
         const chunks: ChatChunk[] = [];
         for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
           chunks.push(chunk);
         }
 
-        if (testCase.shouldRetry) {
-          expect(mockProvider.getCallCount()).toBe(4); // Should exhaust retries (original + 3)
-          expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
-        } else {
-          expect(mockProvider.getCallCount()).toBe(1); // Should not retry
-          expect(chunks[0].content).toContain(
-            "Provider 'reliable-mock-provider' reliability issue"
-          );
+        expect(mockProvider.getCallCount()).toBe(1); // Should not retry
+        expect(chunks[0].content).toContain("Provider 'reliable-mock-provider' reliability issue");
+      });
+
+      it('should not retry unauthorized errors', async () => {
+        mockProvider.setShouldThrow(true, 'unauthorized access');
+
+        const chunks: ChatChunk[] = [];
+        for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+          chunks.push(chunk);
         }
-      }
-    }, 20000);
+
+        expect(mockProvider.getCallCount()).toBe(1);
+        expect(chunks[0].content).toContain("Provider 'reliable-mock-provider' reliability issue");
+      });
+
+      it('should not retry not found errors', async () => {
+        mockProvider.setShouldThrow(true, 'not found');
+
+        const chunks: ChatChunk[] = [];
+        for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+          chunks.push(chunk);
+        }
+
+        expect(mockProvider.getCallCount()).toBe(1);
+        expect(chunks[0].content).toContain("Provider 'reliable-mock-provider' reliability issue");
+      });
+
+      it('should retry network timeout errors', async () => {
+        mockProvider.setShouldThrow(true, 'network timeout');
+
+        const chunks: ChatChunk[] = [];
+        for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+          chunks.push(chunk);
+        }
+
+        expect(mockProvider.getCallCount()).toBe(4); // Should exhaust retries (original + 3)
+        expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
+      });
+
+      it('should retry connection refused errors', async () => {
+        mockProvider.setShouldThrow(true, 'connection refused');
+
+        const chunks: ChatChunk[] = [];
+        for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+          chunks.push(chunk);
+        }
+
+        expect(mockProvider.getCallCount()).toBe(4); // Should exhaust retries (original + 3)
+        expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
+      });
+    });
   });
 
   describe('Configuration Integration', () => {
@@ -297,6 +331,23 @@ describe('ReliableAssistantChat', () => {
 
       expect(chunks).toEqual([invalidChunk]); // Should pass through without validation
       expect(mockProvider.getCallCount()).toBe(1);
+    });
+  });
+
+  describe('Test Environment Optimization', () => {
+    it('should complete retry cycles quickly with disabled backoff', async () => {
+      const startTime = Date.now();
+      mockProvider.setShouldThrow(true, 'network timeout');
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      const duration = Date.now() - startTime;
+      expect(duration).toBeLessThan(3000); // Should complete in under 3 seconds
+      expect(mockProvider.getCallCount()).toBe(4); // Still does full retry cycle
+      expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
     });
   });
 });
