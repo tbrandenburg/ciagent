@@ -28,13 +28,32 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
 
   const provider = config.provider ?? 'codex';
 
+  // Set up AbortController for timeout handling
+  const abortController = new (globalThis as any).AbortController();
+  const timeoutSeconds = config.timeout ?? 60;
+  const timeoutMs = timeoutSeconds * 1000; // Convert to milliseconds
+
+  const timeoutId = (globalThis as any).setTimeout(() => {
+    abortController.abort();
+  }, timeoutMs);
+
   try {
     const assistant = await createAssistantChat(provider, config);
     let printedAssistantOutput = false;
     let providerError: string | null = null;
     const assistantChunks: string[] = [];
 
+    // Check if operation was aborted before starting
+    if (abortController.signal.aborted) {
+      throw new Error(`Operation timed out after ${timeoutSeconds} seconds`);
+    }
+
     for await (const chunk of assistant.sendQuery(prompt, process.cwd())) {
+      // Check for abort signal during iteration
+      if (abortController.signal.aborted) {
+        throw new Error(`Operation timed out after ${timeoutSeconds} seconds`);
+      }
+
       if (chunk.type === 'assistant' && chunk.content) {
         assistantChunks.push(chunk.content);
         if (config.format !== 'json') {
@@ -52,6 +71,9 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
         break;
       }
     }
+
+    // Clear timeout if operation completed successfully
+    (globalThis as any).clearTimeout(timeoutId);
 
     if (providerError) {
       const error = CommonErrors.executionFailed(providerError);
@@ -91,7 +113,18 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
 
     return ExitCode.SUCCESS;
   } catch (error) {
+    // Clear timeout in case of error
+    (globalThis as any).clearTimeout(timeoutId);
+
     const message = error instanceof Error ? error.message : String(error);
+
+    // Check for timeout errors specifically
+    if (message.includes('timed out') || message.includes('timeout')) {
+      const timeoutError = CommonErrors.timeout(timeoutSeconds);
+      printError(timeoutError);
+      return timeoutError.code;
+    }
+
     const isAuthOrProviderError =
       message.includes('auth') ||
       message.includes('Unsupported provider') ||
@@ -201,23 +234,88 @@ function serializeOutput(
 }
 
 function resolvePrompt(args: string[], config: CIAConfig): string {
+  let basePrompt = '';
+
+  // First, get the base prompt from various sources
   if (args.length > 0) {
-    return args.join(' ').trim();
-  }
-
-  if (config['input-file']) {
-    return readFileSync(config['input-file'], 'utf8').trim();
-  }
-
-  // Read from stdin if no args or file provided and stdin has data
-  if ((process as any).stdin.isTTY === false) {
+    basePrompt = args.join(' ').trim();
+  } else if (config['input-file']) {
+    basePrompt = processInputFile(config['input-file']);
+  } else if ((process as any).stdin.isTTY === false) {
+    // Read from stdin if no args or file provided and stdin has data
     try {
-      return readFileSync('/dev/stdin', 'utf8').trim();
+      basePrompt = readFileSync('/dev/stdin', 'utf8').trim();
     } catch (error) {
       // If stdin reading fails, return empty to trigger validation error
-      return '';
+      basePrompt = '';
     }
   }
 
-  return '';
+  // Integrate context sources if available
+  if (config.context && config.context.length > 0) {
+    const contextContent = integrateContextSources(config.context);
+    if (contextContent.trim()) {
+      basePrompt = `${contextContent}\n\n${basePrompt}`;
+    }
+  }
+
+  return basePrompt.trim();
+}
+
+/**
+ * Processes input from file, handling both plain text and JSON formats
+ */
+function processInputFile(inputFile: string): string {
+  const content = readFileSync(inputFile, 'utf8').trim();
+
+  // Try to parse as JSON first
+  try {
+    const jsonData = JSON.parse(content);
+
+    // If it's an object with a "prompt" field, extract it
+    if (typeof jsonData === 'object' && jsonData !== null && 'prompt' in jsonData) {
+      return String(jsonData.prompt || '').trim();
+    }
+
+    // If it's just a JSON string, return it as-is
+    return content;
+  } catch {
+    // Not valid JSON, treat as plain text
+    return content;
+  }
+}
+
+/**
+ * Integrates context from multiple sources (files, URLs)
+ */
+function integrateContextSources(contextSources: string[]): string {
+  const contextParts: string[] = [];
+
+  for (const source of contextSources) {
+    try {
+      let contextContent = '';
+
+      if (source.startsWith('http://') || source.startsWith('https://')) {
+        // URL context - for now just note it (actual fetching could be implemented later)
+        contextContent = `[Context from URL: ${source}]\n(URL content fetching not yet implemented)`;
+      } else {
+        // File context
+        contextContent = readFileSync(source, 'utf8').trim();
+        if (contextContent) {
+          contextContent = `[Context from ${source}]\n${contextContent}`;
+        }
+      }
+
+      if (contextContent.trim()) {
+        contextParts.push(contextContent);
+      }
+    } catch (error) {
+      // Log warning but continue processing other context sources
+      console.error(
+        `Warning: Could not read context source "${source}": ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return contextParts.join('\n\n');
 }

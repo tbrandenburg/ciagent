@@ -1,5 +1,13 @@
 import { type ChatChunk, type IAssistantChat, type Message } from './types.js';
 
+interface ProviderConfig {
+  model?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+  [key: string]: unknown;
+}
+
 interface ClaudeQueryMessage {
   type?: string;
   message?: {
@@ -50,7 +58,10 @@ export class ClaudeAssistantChat implements IAssistantChat {
     this.query = query;
   }
 
-  static async create(): Promise<ClaudeAssistantChat> {
+  static async create(config?: ProviderConfig): Promise<ClaudeAssistantChat> {
+    // TODO: Use config.baseUrl, config.apiKey, config.timeout, config.model in future iterations
+    void config; // Acknowledge config parameter for interface compatibility
+
     let claudeSdk: {
       query: (input: {
         prompt: string;
