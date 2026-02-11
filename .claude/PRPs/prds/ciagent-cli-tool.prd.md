@@ -178,11 +178,12 @@ First-class providers for v1: Codex SDK, Claude SDK, Vercel AI SDK (Azure, OpenA
    - v1 rule: keep the `IAssistantClient` streaming interface everywhere.
    - If a provider SDK exposes streaming, use it.
    - If a provider SDK does not expose streaming, wrap the single response into the AsyncGenerator (no alternate non-streaming interface).
-6. **Config**: Environment variables with optional JSON configuration:
-   - Primary: `CODEX_API_KEY`, `CLAUDE_API_KEY`, `AZURE_OPENAI_KEY`, `AZURE_RESOURCE_NAME`, `OPENAI_API_KEY`, `GITHUB_TOKEN`
-   - Optional: `.cia/config.json` for advanced provider configurations
+6. **Config**: JSON configuration:
+   - Primary: `.cia/config.json` for provider configurations
+   - Secondary: Only selection of configurations via CLI parameters (e.g. --provider or --model)
+   - Tertiary: Only state-of-the-art and infrastructural environment variables like HTTP_PROXY, HTTPS_PROXY, NO_PROXY etc.
 7. **Testing**: Vitest with mock providers for unit tests; real API integration tests gated behind env vars
-8. **Packaging**: Single Bun binary + slim Docker image (<50MB)
+8. **Packaging**: Single Bun binary
 
 **Technical Risks**
 
