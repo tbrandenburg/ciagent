@@ -131,13 +131,12 @@ First-class providers for v1: Codex SDK, Claude SDK, Vercel AI SDK (Azure, OpenA
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ 1. Install: `bun install -g ciagent`           │
+│ 1. Install: `bun install -g ciagent`            │
 └─────────────────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────────────┐
 │ 2. Set credentials:                             │
-│    export CODEX_API_KEY=xxx                     │
-│    export AZURE_OPENAI_KEY=xxx                  │
+│    In `.cia/config.json`                        │
 └─────────────────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────────────┐
@@ -214,7 +213,8 @@ We purster a test coverage of >=40% in early stages of the project.
 | 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | complete | - | 1 | - |
 | 3 | Provider reliability | Contract tests, error normalization, retry/backoff | complete  | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
-| 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | pending | - | 3 | - |
+| 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | pending | - | 3 | - |
+| 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | pending | - | 3.5 | - |
 | 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | pending | - | 3a | - |
 | 3c | Output & advanced features | YAML serialization, Semantic Kernel templates | pending | - | 3b | - |
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3c | - |
@@ -262,6 +262,28 @@ We purster a test coverage of >=40% in early stages of the project.
   - Ensure missing auth/config fails fast with actionable messages
 - **Success signal**: Contract tests pass; retries and timeouts behave consistently across codex/claude
 
+**Phase 3.5: Interface Evolution**
+- **Goal**: Extend IAssistantChat interface to support conversation history arrays for JSON input compliance
+- **Scope**:
+  - **Interface Extension**: Update `IAssistantChat` interface in `packages/cli/src/providers/types.ts`
+    - Add overload signature to accept `Message[]` arrays instead of just `string` prompts
+    - Maintain backward compatibility with existing string-based calls during transition
+    - Define standard `Message` type: `{role: 'system'|'user'|'assistant', content: string}`
+  - **Provider Implementation Updates**: Update all existing provider implementations
+    - Update `packages/cli/src/providers/codex.ts` to handle both string and Message[] inputs
+    - Update `packages/cli/src/providers/claude.ts` to handle both string and Message[] inputs  
+    - Convert single string prompts to Message array format internally
+    - Ensure conversation history is properly passed to underlying provider SDKs
+  - **Backward Compatibility**: Support both interface signatures during transition
+    - Overload `sendQuery()` to accept either `string` or `Message[]` 
+    - Convert string prompts to single-message arrays internally
+    - Maintain existing behavior for string-based calls
+  - **Contract Test Updates**: Update provider contract tests to validate both interface signatures
+    - Test single string prompt handling (backward compatibility)
+    - Test Message[] array handling (new functionality)
+    - Ensure consistent behavior across all providers
+- **Success signal**: All providers support both `sendQuery("prompt", cwd)` and `sendQuery([{role: "user", content: "prompt"}], cwd)` signatures; contract tests pass for both interface styles
+
 **Phase 3a: Core Infrastructure Fixes**
 - **Goal**: Fix fundamental CLI processing issues that block all other functionality
 - **Scope**:
@@ -269,15 +291,16 @@ We purster a test coverage of >=40% in early stages of the project.
     - Support `.cia/config.json` with providers, models, and MCP configurations
     - Implement environment variable substitution (`{env:VAR_NAME}`)
     - Maintain CLI flag override behavior for common options (`--provider`, `--model`, `--timeout`)
-    - Deprecate individual CLI flags like `--endpoint`, `--api-key` in favor of structured config
+    - Remove individual CLI flags like `--endpoint`, `--api-key` in favor of structured config
     - **Temporary**: Maintain legacy environment variable support during transition (to be removed in Phase 11)
   - **Provider Configuration Loading**: Pass structured config to provider create() methods
     - Load provider-specific options (baseURL, apiKey, headers, etc.) from config
     - Support multiple providers with different configurations
     - Enable model-specific options and limits
   - **JSON Input Processing**: Parse `--input-file` JSON conversation format `{"messages": [...], "context": {...}}` instead of plain text
-    - Support conversation history format from CLI spec examples (lines 178-226, 299-320)
+    - Support conversation history format from CLI spec examples (lines 281-293)
     - Distinguish between plain text and JSON conversation inputs
+    - Use updated `IAssistantChat` interface with Message[] arrays (from Phase 3.5)
   - **Basic Context Integration**: Use `--context` files in LLM requests (basic file reading only)
     - Read context files and include content in prompts
     - Defer URL fetching and advanced context handling to Phase 5
@@ -431,7 +454,7 @@ We purster a test coverage of >=40% in early stages of the project.
 
 ### Parallelism Notes
 
-**Phases 3 & 4 (Codex + Azure)** can run in parallel as they implement the same interface independently. Use separate Git branches or worktrees to avoid conflicts. Integration happens in Phase 5 when both are merged.
+**Phases 3.5 & 4 (Interface Evolution + Azure)** can run in parallel after Phase 3 is complete. Phase 3.5 evolves the provider interface while Phase 4 implements Azure OpenAI integration. Use separate Git branches or worktrees to avoid conflicts. Integration happens in Phase 3a when both interface updates and Azure provider are merged.
 
 **Phases 6, 7, & 8 (Models + MCP + Enterprise Network)** can run in parallel as they consume provider interfaces without modifying them. All depend on Phases 3c & 4 being complete.
 

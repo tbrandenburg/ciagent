@@ -50,8 +50,3 @@ This is Phase 1 of the ciagent implementation, providing the core CLI scaffold w
 - Codex-first chat integration via `IAssistantChat`
 - Comprehensive test suite (89.73% coverage)
 - Binary compilation for distribution
-
-### Incremental Phases
-
-- Phase 2 (complete): provider abstraction unification and shared streaming chunk contract.
-- Phase 3 (planned): provider reliability hardening (error normalization + contract enforcement).
