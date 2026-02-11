@@ -22,10 +22,10 @@ lint: ## Run linting
 	bun run lint
 
 test: ## Run all tests
-	bun test
+	npm run test
 
 test-coverage: ## Run tests with coverage report
-	bun test --coverage
+	npm run test:coverage
 
 build: ## Build CLI binary
 	bun run build
@@ -41,10 +41,10 @@ validate-l1: ## Level 1: Static analysis
 	bun run type-check && bun run lint
 
 validate-l2: ## Level 2: Unit tests  
-	bun test packages/cli/tests/
+	npm run test
 
 validate-l3: ## Level 3: Full suite
-	bun test && bun run build
+	npm run test && bun run build
 
 validate-l4: ## Level 4: Binary validation
 	bun run build
