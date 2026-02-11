@@ -2,6 +2,9 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
+    globals: true,
+    environment: 'node',
+    testTimeout: 10000, // Increase timeout for reliability tests with retry delays
     coverage: {
       enabled: true,
       provider: 'v8',

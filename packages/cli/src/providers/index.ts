@@ -1,17 +1,29 @@
 import { CodexAssistantChat } from './codex.js';
 import { ClaudeAssistantChat } from './claude.js';
+import { ReliableAssistantChat } from './reliability.js';
 import { type IAssistantChat } from './types.js';
+import { type CIAConfig } from '../shared/config/loader.js';
 
-export async function createAssistantChat(provider: string): Promise<IAssistantChat> {
+export async function createAssistantChat(
+  provider: string,
+  config?: CIAConfig
+): Promise<IAssistantChat> {
+  let assistantChat: IAssistantChat;
+
   if (provider === 'codex') {
-    return CodexAssistantChat.create();
+    assistantChat = await CodexAssistantChat.create();
+  } else if (provider === 'claude') {
+    assistantChat = await ClaudeAssistantChat.create();
+  } else {
+    throw new Error(`Unsupported provider: ${provider}. Supported: codex, claude.`);
   }
 
-  if (provider === 'claude') {
-    return ClaudeAssistantChat.create();
+  // Conditionally wrap with reliability features if configuration provided
+  if (config && (config.retries || config['contract-validation'] || config['retry-timeout'])) {
+    return new ReliableAssistantChat(assistantChat, config);
   }
 
-  throw new Error(`Unsupported provider: ${provider}. Supported: codex, claude.`);
+  return assistantChat;
 }
 
 export * from './types.js';

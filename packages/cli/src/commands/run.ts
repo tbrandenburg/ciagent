@@ -25,7 +25,7 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
   const provider = config.provider ?? 'codex';
 
   try {
-    const assistant = await createAssistantChat(provider);
+    const assistant = await createAssistantChat(provider, config);
     let printedAssistantOutput = false;
     let providerError: string | null = null;
     const assistantChunks: string[] = [];
@@ -77,14 +77,21 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     }
 
     if (config['output-file']) {
-      writeOutputFile(config['output-file'], config['output-format'], structuredOutput, responseText);
+      writeOutputFile(
+        config['output-file'],
+        config['output-format'],
+        structuredOutput,
+        responseText
+      );
     }
 
     return ExitCode.SUCCESS;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const isAuthOrProviderError =
-      message.includes('auth') || message.includes('Unsupported provider') || message.includes('HOME is not set');
+      message.includes('auth') ||
+      message.includes('Unsupported provider') ||
+      message.includes('HOME is not set');
 
     const cliError = isAuthOrProviderError
       ? CommonErrors.authConfig(message)

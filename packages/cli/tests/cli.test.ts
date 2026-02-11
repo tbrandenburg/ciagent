@@ -1,17 +1,17 @@
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { main } from '../src/cli.js';
 
 describe('CLI Main', () => {
-  let logSpy: ReturnType<typeof spyOn>;
-  let errorSpy: ReturnType<typeof spyOn>;
+  let logSpy: any;
+  let errorSpy: any;
   let originalHome: string | undefined;
   const testHome = '/tmp/cia-cli-test-home';
 
   beforeEach(() => {
-    logSpy = spyOn(console, 'log').mockImplementation(() => {});
-    errorSpy = spyOn(console, 'error').mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     originalHome = process.env.HOME;
     if (existsSync(testHome)) {
       rmSync(testHome, { recursive: true, force: true });
@@ -36,7 +36,9 @@ describe('CLI Main', () => {
   it('prints help', async () => {
     const exitCode = await main(['--help']);
     expect(exitCode).toBe(0);
-    expect(logSpy).toHaveBeenCalledWith('CIA - Vendor-neutral AI agent CLI tool for CI/CD pipelines');
+    expect(logSpy).toHaveBeenCalledWith(
+      'CIA - Vendor-neutral AI agent CLI tool for CI/CD pipelines'
+    );
   });
 
   it('prints version', async () => {

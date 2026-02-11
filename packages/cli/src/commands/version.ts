@@ -2,6 +2,18 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 /**
+ * Get runtime version information
+ */
+function getRuntimeVersion(): string {
+  // Check if running in Bun environment
+  if (typeof Bun !== 'undefined' && Bun.version) {
+    return `Bun v${Bun.version}`;
+  }
+  // Fallback to Node.js version
+  return `Node.js ${process.version}`;
+}
+
+/**
  * Print version information with system details
  */
 export async function printVersionInfo(): Promise<void> {
@@ -11,9 +23,8 @@ export async function printVersionInfo(): Promise<void> {
     const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
 
     console.log(`ciagent v${packageJson.version}`);
-    console.log(`Bun v${Bun.version}`);
+    console.log(getRuntimeVersion());
     console.log(`Platform: ${process.platform}-${process.arch}`);
-    console.log(`Node.js compatibility: v${process.version}`);
 
     // Show additional system info in debug mode
     if (process.env.DEBUG) {
@@ -24,7 +35,7 @@ export async function printVersionInfo(): Promise<void> {
   } catch (error) {
     // Fallback version info
     console.log('ciagent v0.1.0');
-    console.log(`Bun v${Bun.version}`);
+    console.log(getRuntimeVersion());
     console.log(`Platform: ${process.platform}-${process.arch}`);
 
     if (process.env.DEBUG) {

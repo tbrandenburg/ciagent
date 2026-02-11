@@ -105,6 +105,30 @@ export const CommonErrors = {
       'The AI provider took too long to respond',
       'Try increasing --timeout or check your network connection'
     ),
+
+  retryExhausted: (attempts: number, lastError: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `Provider failed after ${attempts} retry attempts`,
+      lastError,
+      'Check your network connection and provider configuration'
+    ),
+
+  contractViolation: (details: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      'Provider contract violation detected',
+      details,
+      'This indicates a provider implementation issue - report to maintainers'
+    ),
+
+  providerUnreliable: (provider: string, reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `Provider '${provider}' reliability issue`,
+      reason,
+      'Try switching providers or check provider service status'
+    ),
 };
 
 export function handleUnexpectedError(error: unknown): CliError {

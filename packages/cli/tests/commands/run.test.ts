@@ -1,6 +1,8 @@
-import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { existsSync, readFileSync, rmSync } from 'fs';
 import type { ChatChunk } from '../../src/providers/types.js';
+import * as providers from '../../src/providers/index.js';
+import { runCommand } from '../../src/commands/run.js';
 
 function makeGenerator(chunks: ChatChunk[]): AsyncGenerator<ChatChunk> {
   return (async function* generate() {
@@ -13,46 +15,52 @@ function makeGenerator(chunks: ChatChunk[]): AsyncGenerator<ChatChunk> {
 describe('runCommand', () => {
   const testOutputDir = '/tmp/cia-run-command-tests';
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   afterEach(() => {
-    mock.restore();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
     if (existsSync(testOutputDir)) {
       rmSync(testOutputDir, { recursive: true, force: true });
     }
   });
 
   it('returns success when assistant content is produced', async () => {
-    mock.module('../../src/providers/index.js', () => ({
-      createAssistantChat: async () => ({
-        sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
-        getType: () => 'codex',
-      }),
-    }));
+    const mockAssistantChat = {
+      sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
+      getType: () => 'codex',
+    };
 
-    const logSpy = spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
+    const createAssistantChatSpy = vi
+      .spyOn(providers, 'createAssistantChat')
+      .mockResolvedValue(mockAssistantChat);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    const { runCommand } = await import('../../src/commands/run.js');
     const exitCode = await runCommand(['hello'], { provider: 'codex' });
 
     expect(exitCode).toBe(0);
     expect(logSpy).toHaveBeenCalledWith('ok');
+    expect(createAssistantChatSpy).toHaveBeenCalledWith('codex', { provider: 'codex' });
 
     logSpy.mockRestore();
     errorSpy.mockRestore();
   });
 
   it('returns execution failure on provider error chunk', async () => {
-    mock.module('../../src/providers/index.js', () => ({
-      createAssistantChat: async () => ({
-        sendQuery: () => makeGenerator([{ type: 'error', content: 'turn failed' }]),
-        getType: () => 'codex',
-      }),
-    }));
+    const mockAssistantChat = {
+      sendQuery: () => makeGenerator([{ type: 'error', content: 'turn failed' }]),
+      getType: () => 'codex',
+    };
 
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
-    const logSpy = spyOn(console, 'log').mockImplementation(() => {});
+    const createAssistantChatSpy = vi
+      .spyOn(providers, 'createAssistantChat')
+      .mockResolvedValue(mockAssistantChat);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const { runCommand } = await import('../../src/commands/run.js');
     const exitCode = await runCommand(['hello'], { provider: 'codex' });
 
     expect(exitCode).toBe(4);
@@ -64,36 +72,35 @@ describe('runCommand', () => {
   });
 
   it('writes structured output file when output-file is configured', async () => {
-    mock.module('../../src/providers/index.js', () => ({
-      createAssistantChat: async () => ({
-        sendQuery: () => makeGenerator([{ type: 'assistant', content: '{"ok":true}' }]),
-        getType: () => 'codex',
-      }),
-    }));
+    const mockAssistantChat = {
+      sendQuery: () => makeGenerator([{ type: 'assistant', content: '{"ok":true}' }]),
+      getType: () => 'codex',
+    };
+
+    const createAssistantChatSpy = vi
+      .spyOn(providers, 'createAssistantChat')
+      .mockResolvedValue(mockAssistantChat);
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const outputFile = `${testOutputDir}/result.json`;
-    const logSpy = spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
-
-    const { runCommand } = await import('../../src/commands/run.js');
-    const exitCode = await runCommand(['hello'], {
+    const config = {
       provider: 'codex',
       'output-file': outputFile,
-      format: 'json',
-    });
+      'output-format': 'json' as const,
+    };
+
+    const exitCode = await runCommand(['hello'], config);
 
     expect(exitCode).toBe(0);
     expect(existsSync(outputFile)).toBe(true);
-    const written = JSON.parse(readFileSync(outputFile, 'utf8')) as {
-      success: boolean;
-      response: { ok: boolean };
-      metadata: { runner: string };
-    };
+
+    const content = readFileSync(outputFile, 'utf8');
+    const written = JSON.parse(content);
+
     expect(written.success).toBe(true);
-    expect(written.response.ok).toBe(true);
+    expect(written.response).toEqual({ ok: true });
     expect(written.metadata.runner).toBe('cia');
 
     logSpy.mockRestore();
-    errorSpy.mockRestore();
   });
 });
