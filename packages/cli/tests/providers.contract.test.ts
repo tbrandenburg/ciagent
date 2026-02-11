@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import type { ChatChunk } from '../src/providers/types.js';
+import type { ChatChunk, Message } from '../src/providers/types.js';
 
 const ALLOWED_CHUNK_TYPES = new Set<ChatChunk['type']>([
   'assistant',
@@ -123,6 +123,58 @@ describe('providers contract', () => {
 
     expect(codexResult?.sessionId).toBeTruthy();
     expect(claudeResult?.sessionId).toBeTruthy();
+  });
+
+  describe('interface overloading support', () => {
+    it('both providers support string inputs (backward compatibility)', async () => {
+      mockProviderSdks();
+      const { createAssistantChat } = await import('../src/providers/index.js');
+
+      const codex = await createAssistantChat('codex');
+      const claude = await createAssistantChat('claude');
+
+      const codexChunks = await collectChunks(codex.sendQuery('test prompt', '/tmp'));
+      const claudeChunks = await collectChunks(claude.sendQuery('test prompt', '/tmp'));
+
+      expect(codexChunks.length).toBeGreaterThan(0);
+      expect(claudeChunks.length).toBeGreaterThan(0);
+
+      // Verify chunk types are still valid
+      for (const chunk of [...codexChunks, ...claudeChunks]) {
+        expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
+      }
+    });
+
+    it('both providers support Message[] inputs (new functionality)', async () => {
+      mockProviderSdks();
+      const { createAssistantChat } = await import('../src/providers/index.js');
+
+      const messages: Message[] = [
+        { role: 'system', content: 'You are helpful' },
+        { role: 'user', content: 'Hello' },
+      ];
+
+      const codex = await createAssistantChat('codex');
+      const claude = await createAssistantChat('claude');
+
+      const codexChunks = await collectChunks(codex.sendQuery(messages, '/tmp'));
+      const claudeChunks = await collectChunks(claude.sendQuery(messages, '/tmp'));
+
+      expect(codexChunks.length).toBeGreaterThan(0);
+      expect(claudeChunks.length).toBeGreaterThan(0);
+
+      // Verify chunk types are still valid
+      for (const chunk of [...codexChunks, ...claudeChunks]) {
+        expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
+      }
+
+      // Verify sessionIds are preserved
+      const codexResult = codexChunks.find(chunk => chunk.type === 'result');
+      const claudeResult = claudeChunks.find(chunk => chunk.type === 'result');
+
+      expect(codexResult?.sessionId).toBeTruthy();
+      expect(claudeResult?.sessionId).toBeTruthy();
+    });
   });
 
   it('reliability wrapper maintains contract compliance', async () => {

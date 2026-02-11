@@ -214,7 +214,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | complete | - | 1 | - |
 | 3 | Provider reliability | Contract tests, error normalization, retry/backoff | complete  | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
-| 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | pending | - | 3 | - |
+| 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | in-progress | - | 3 | .claude/PRPs/plans/interface-evolution.plan.md |
 | 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | pending | - | 3.5 | - |
 | 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | pending | - | 3a | - |
 | 3c | Output & advanced features | YAML serialization, Semantic Kernel templates | pending | - | 3b | - |

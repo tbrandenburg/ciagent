@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ReliableAssistantChat } from '../src/providers/reliability.js';
-import type { IAssistantChat, ChatChunk } from '../src/providers/types.js';
+import type { IAssistantChat, ChatChunk, Message } from '../src/providers/types.js';
 import type { CIAConfig } from '../src/shared/config/loader.js';
 
 // Mock provider for testing
@@ -25,7 +25,7 @@ class MockProvider implements IAssistantChat {
   }
 
   async *sendQuery(
-    _prompt: string,
+    _input: string | Message[],
     _cwd: string,
     _resumeSessionId?: string
   ): AsyncGenerator<ChatChunk> {
@@ -348,6 +348,85 @@ describe('ReliableAssistantChat', () => {
       expect(duration).toBeLessThan(3000); // Should complete in under 3 seconds
       expect(mockProvider.getCallCount()).toBe(4); // Still does full retry cycle
       expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
+    });
+  });
+
+  describe('reliability with Message[] inputs', () => {
+    it('handles empty Message[] gracefully', async () => {
+      const emptyMessages: Message[] = [];
+      mockProvider.setChunks([
+        { type: 'assistant', content: 'Handled empty messages' },
+        { type: 'result', sessionId: 'test-session' },
+      ]);
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery(emptyMessages, '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(2);
+      expect(chunks[0].content).toBe('Handled empty messages');
+      expect(mockProvider.getCallCount()).toBe(1);
+    });
+
+    it('handles malformed Message objects', async () => {
+      const malformed = [{ role: 'invalid', content: 'test' }] as unknown as Message[];
+      mockProvider.setChunks([
+        { type: 'assistant', content: 'Processed malformed input' },
+        { type: 'result', sessionId: 'test-session' },
+      ]);
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery(malformed, '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(chunks[0].content).toBe('Processed malformed input');
+      expect(mockProvider.getCallCount()).toBe(1);
+    });
+
+    it('retries Message[] inputs on failures', async () => {
+      const messages: Message[] = [
+        { role: 'system', content: 'You are helpful' },
+        { role: 'user', content: 'Hello' },
+      ];
+
+      mockProvider.setShouldThrow(true, 'Network timeout', 2); // Fail first 2 calls
+      mockProvider.setChunks([
+        { type: 'assistant', content: 'Success with Messages after retry' },
+        { type: 'result', sessionId: 'retry-session' },
+      ]);
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery(messages, '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(2);
+      expect(chunks[0].content).toBe('Success with Messages after retry');
+      expect(mockProvider.getCallCount()).toBe(3); // 3rd attempt succeeds
+    });
+
+    it('validates Message[] inputs with contract validation enabled', async () => {
+      config['contract-validation'] = true;
+      reliableProvider = new ReliableAssistantChat(mockProvider, config);
+
+      const messages: Message[] = [{ role: 'user', content: 'Test message' }];
+
+      const validChunks: ChatChunk[] = [
+        { type: 'assistant', content: 'Valid response' },
+        { type: 'result', sessionId: 'valid-session-id' },
+      ];
+      mockProvider.setChunks(validChunks);
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery(messages, '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toEqual(validChunks);
+      expect(mockProvider.getCallCount()).toBe(1);
     });
   });
 });
