@@ -217,8 +217,8 @@ We purster a test coverage of >=40% in early stages of the project.
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3 | - |
 | 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3, 4 | - |
 | 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3, 4 | - |
-| 7 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 6 | 3, 4 | - |
-| 8 | MCP/Skills/Tools | Optional integrations for extended capabilities | pending | - | 5, 6, 7 | - |
+| 7 | MCP/Skills/Tools | Optional integrations for extended capabilities | pending | - | 5, 6, 7 | - |
+| 8 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 6 | 3, 4 | - |
 | 9 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | pending | - | 8 | - |
 | 10 | Packaging & docs | Bun binary, Docker image, README with examples | pending | - | 9 | - |
 
@@ -261,11 +261,12 @@ We purster a test coverage of >=40% in early stages of the project.
 - **Goal**: Initial @ai-sdk/azure integration via Vercel AI SDK
 - **Scope**:
   - Install `ai` + `@ai-sdk/azure`
-  - Implement `AzureClient` using `generateText()` from Vercel SDK
+  - Create an IAssistantChat to Vercel adapter for integrating any Vercel SDK provider
+  - Realize first concrete @ai-sdk/azure provider behind adapter
   - Auth from `AZURE_OPENAI_KEY` + `AZURE_RESOURCE_NAME`
   - Convert non-streaming response to `MessageChunk` AsyncGenerator
   - Add provider contract tests for Azure (reuse Phase 3 harness)
-- **Success signal**: `CIA_PROVIDER=azure cia run "Hello"` returns response from Azure OpenAI
+- **Success signal**: `cia run --provider azure --model gpt-5.2 "Hello"` could return response from Azure OpenAI (if authenticated)
 
 **Phase 5: Context Handling**
 - **Goal**: `--context` flag loads files, folders, URLs
@@ -284,7 +285,17 @@ We purster a test coverage of >=40% in early stages of the project.
   - Output format: `provider:model` (e.g., `codex:codex-v1`, `azure:gpt-4o`)
 - **Success signal**: `cia models` prints table with at least 2 models
 
-**Phase 7: Streaming Output (v2+)**
+**Phase 7: MCP/Skills/Tools**
+- **Goal**: Extend capabilities without hardcoding features
+- **Scope**:
+  - codex SDK and claude SDK and their IAssistantChat compliant implementation should already support MCPs and skills -> they should provide the template for it
+  - MCP: Load MCP servers from `~/.cia/mcp.json` or `.cia/mcp.json`
+  - Skills: Load skill definitions from `~/.cia/skills/` or `.cia/skills/` (reusable prompt patterns)
+  - Tools: Function calling support via provider SDKs
+  - All optional, lazy-loaded
+- **Success signal**: `cia run --provider codex --model gpt-5.2 "Which skills do you have"` returns predefined skills + `cia run --provider codex --model gpt-5.2 "What is the weather in New York"` returns weather report based on bash/curl calls
+
+**Phase 8: Streaming Output (v2+)**
 - **Goal**: Real-time stdout updates as LLM responds (v2+ capability gate)
 - **Scope**:
   - Consume `AsyncGenerator<MessageChunk>` from clients
@@ -292,15 +303,6 @@ We purster a test coverage of >=40% in early stages of the project.
   - Optionally show `thinking` chunks with `--verbose`
   - Suppress `tool`, `system` unless `--debug`
 - **Success signal**: v2+ only: `cia run "Count to 10"` prints numbers as they arrive, not buffered
-
-**Phase 8: MCP/Skills/Tools**
-- **Goal**: Extend capabilities without hardcoding features
-- **Scope**:
-  - MCP: Load MCP servers from env var or `.cia/mcp.json`
-  - Skills: Load skill definitions from `.cia/skills/` (reusable prompt patterns)
-  - Tools: Function calling support via provider SDKs
-  - All optional, lazy-loaded
-- **Success signal**: `cia run --skill code-review "Review PR"` uses predefined skill pattern
 
 **Phase 9: Testing & Benchmarks**
 - **Goal**: Confidence in correctness and performance

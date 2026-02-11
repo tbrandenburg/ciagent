@@ -1,11 +1,11 @@
-import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { printVersionInfo } from '../../src/commands/version.js';
 
 describe('Version Command', () => {
-  let consoleSpy: ReturnType<typeof spyOn>;
+  let consoleSpy: any;
 
   beforeEach(() => {
-    consoleSpy = spyOn(console, 'log').mockImplementation(() => {});
+    consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -17,15 +17,17 @@ describe('Version Command', () => {
 
     // Check that version info is printed
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('ciagent v'));
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Bun v'));
+    // Should show runtime info (either Bun or Node.js)
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringMatching(/(Bun v|Node\.js v)/));
     expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Platform:'));
   });
 
-  it('should include Bun version', async () => {
+  it('should include runtime version', async () => {
     await printVersionInfo();
 
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
-    expect(allOutput).toContain(`Bun v${Bun.version}`);
+    // Should show either Bun or Node.js version depending on environment
+    expect(allOutput).toMatch(/(Bun v|Node\.js v)/);
   });
 
   it('should include platform information', async () => {
@@ -35,11 +37,18 @@ describe('Version Command', () => {
     expect(allOutput).toContain(`Platform: ${process.platform}-${process.arch}`);
   });
 
-  it('should include Node.js compatibility info', async () => {
+  it('should adapt to runtime environment', async () => {
     await printVersionInfo();
 
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
-    expect(allOutput).toContain('Node.js compatibility:');
+    // In vitest/Node environment, should show Node.js version
+    if (typeof Bun === 'undefined') {
+      expect(allOutput).toContain('Node.js v');
+      expect(allOutput).not.toContain('Node.js compatibility:');
+    } else {
+      // In Bun environment, should show Bun version
+      expect(allOutput).toContain('Bun v');
+    }
   });
 
   it('should show debug info when DEBUG env var is set', async () => {

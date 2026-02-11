@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { existsSync, readFileSync, rmSync } from 'fs';
 import type { ChatChunk } from '../../src/providers/types.js';
 
@@ -13,23 +13,32 @@ function makeGenerator(chunks: ChatChunk[]): AsyncGenerator<ChatChunk> {
 describe('runCommand', () => {
   const testOutputDir = '/tmp/cia-run-command-tests';
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
   afterEach(() => {
-    mock.restore();
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+    vi.resetModules();
     if (existsSync(testOutputDir)) {
       rmSync(testOutputDir, { recursive: true, force: true });
     }
   });
 
   it('returns success when assistant content is produced', async () => {
-    mock.module('../../src/providers/index.js', () => ({
-      createAssistantChat: async () => ({
-        sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
-        getType: () => 'codex',
-      }),
+    const mockCreateAssistantChat = vi.fn(async () => ({
+      sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
+      getType: () => 'codex',
     }));
 
-    const logSpy = spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
+    vi.doMock('../../src/providers/index.js', () => ({
+      createAssistantChat: mockCreateAssistantChat,
+    }));
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const { runCommand } = await import('../../src/commands/run.js');
     const exitCode = await runCommand(['hello'], { provider: 'codex' });
@@ -42,15 +51,17 @@ describe('runCommand', () => {
   });
 
   it('returns execution failure on provider error chunk', async () => {
-    mock.module('../../src/providers/index.js', () => ({
-      createAssistantChat: async () => ({
-        sendQuery: () => makeGenerator([{ type: 'error', content: 'turn failed' }]),
-        getType: () => 'codex',
-      }),
+    const mockCreateAssistantChat = vi.fn(async () => ({
+      sendQuery: () => makeGenerator([{ type: 'error', content: 'turn failed' }]),
+      getType: () => 'codex',
     }));
 
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
-    const logSpy = spyOn(console, 'log').mockImplementation(() => {});
+    vi.doMock('../../src/providers/index.js', () => ({
+      createAssistantChat: mockCreateAssistantChat,
+    }));
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const { runCommand } = await import('../../src/commands/run.js');
     const exitCode = await runCommand(['hello'], { provider: 'codex' });
@@ -64,16 +75,18 @@ describe('runCommand', () => {
   });
 
   it('writes structured output file when output-file is configured', async () => {
-    mock.module('../../src/providers/index.js', () => ({
-      createAssistantChat: async () => ({
-        sendQuery: () => makeGenerator([{ type: 'assistant', content: '{"ok":true}' }]),
-        getType: () => 'codex',
-      }),
+    const mockCreateAssistantChat = vi.fn(async () => ({
+      sendQuery: () => makeGenerator([{ type: 'assistant', content: '{"ok":true}' }]),
+      getType: () => 'codex',
+    }));
+
+    vi.doMock('../../src/providers/index.js', () => ({
+      createAssistantChat: mockCreateAssistantChat,
     }));
 
     const outputFile = `${testOutputDir}/result.json`;
-    const logSpy = spyOn(console, 'log').mockImplementation(() => {});
-    const errorSpy = spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const { runCommand } = await import('../../src/commands/run.js');
     const exitCode = await runCommand(['hello'], {

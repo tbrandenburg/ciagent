@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, spyOn } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { main } from '../src/cli.js';
 import { loadConfig } from '../src/shared/config/loader.js';
 import { writeFileSync, unlinkSync, existsSync, mkdirSync, rmSync } from 'fs';
@@ -22,7 +22,7 @@ describe('CLI Integration', () => {
     if (existsSync(repoConfigFile)) unlinkSync(repoConfigFile);
     if (existsSync(repoConfigDir)) rmSync(repoConfigDir, { recursive: true, force: true });
 
-    processExitSpy = spyOn(process, 'exit').mockImplementation(() => {
+    processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called');
     });
   });

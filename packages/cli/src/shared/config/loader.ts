@@ -15,6 +15,8 @@ export interface CIAConfig {
   'output-format'?: 'json' | 'yaml' | 'md' | 'text';
   retries?: number;
   'retry-backoff'?: boolean;
+  'retry-timeout'?: number;
+  'contract-validation'?: boolean;
   timeout?: number;
   endpoint?: string;
   'api-key'?: string;
@@ -59,6 +61,10 @@ function loadFromEnv(): Partial<CIAConfig> {
     'log-level': process.env.CIA_LOG_LEVEL,
     timeout: process.env.CIA_TIMEOUT ? parseInt(process.env.CIA_TIMEOUT, 10) : undefined,
     retries: process.env.CIA_RETRIES ? parseInt(process.env.CIA_RETRIES, 10) : undefined,
+    'retry-timeout': process.env.CIA_RETRY_TIMEOUT
+      ? parseInt(process.env.CIA_RETRY_TIMEOUT, 10)
+      : undefined,
+    'contract-validation': process.env.CIA_CONTRACT_VALIDATION === 'true',
   };
 }
 

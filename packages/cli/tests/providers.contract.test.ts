@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { ChatChunk } from '../src/providers/types.js';
@@ -16,7 +16,7 @@ const testHome = '/tmp/cia-provider-contract-tests';
 const originalHome = process.env.HOME;
 
 function mockProviderSdks(): void {
-  mock.module('@openai/codex-sdk', () => ({
+  vi.mock('@openai/codex-sdk', () => ({
     Codex: class {
       startThread() {
         return {
@@ -41,7 +41,7 @@ function mockProviderSdks(): void {
     },
   }));
 
-  mock.module('@anthropic-ai/claude-agent-sdk', () => ({
+  vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
     query: () =>
       (async function* () {
         yield {
@@ -83,7 +83,7 @@ describe('providers contract', () => {
   });
 
   afterEach(() => {
-    mock.restore();
+    vi.restoreAllMocks();
     rmSync(testHome, { recursive: true, force: true });
     if (originalHome === undefined) {
       delete process.env.HOME;
@@ -123,5 +123,61 @@ describe('providers contract', () => {
 
     expect(codexResult?.sessionId).toBeTruthy();
     expect(claudeResult?.sessionId).toBeTruthy();
+  });
+
+  it('reliability wrapper maintains contract compliance', async () => {
+    mockProviderSdks();
+    const { createAssistantChat } = await import('../src/providers/index.js');
+    const { ReliableAssistantChat } = await import('../src/providers/reliability.js');
+
+    const codex = await createAssistantChat('codex');
+    const config = {
+      retries: 2,
+      'contract-validation': true,
+      'retry-backoff': true,
+      'retry-timeout': 5000,
+    };
+    const reliableCodex = new ReliableAssistantChat(codex, config);
+
+    const codexChunks = await collectChunks(reliableCodex.sendQuery('prompt', '/tmp'));
+
+    // Verify all chunks still follow contract
+    for (const chunk of codexChunks) {
+      expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
+    }
+
+    // Verify result chunk still has sessionId
+    const codexResult = codexChunks.find(chunk => chunk.type === 'result');
+    expect(codexResult?.sessionId).toBeTruthy();
+
+    // Verify provider type is wrapped correctly
+    expect(reliableCodex.getType()).toBe('reliable-codex');
+  });
+
+  it('reliability wrapper with contract validation enabled catches violations', async () => {
+    const { ReliableAssistantChat } = await import('../src/providers/reliability.js');
+
+    // Create a mock provider that violates contracts
+    const mockProvider = {
+      async *sendQuery() {
+        yield { type: 'invalid-type' as any, content: 'Invalid chunk' };
+      },
+      getType: () => 'mock-violator',
+    };
+
+    const config = {
+      retries: 1,
+      'contract-validation': true,
+      'retry-backoff': false,
+      'retry-timeout': 1000,
+    };
+    const reliableProvider = new ReliableAssistantChat(mockProvider as any, config);
+
+    const chunks = await collectChunks(reliableProvider.sendQuery('test', '/tmp'));
+
+    // Should get an error chunk (contract violation is non-retryable)
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].type).toBe('error');
+    expect(chunks[0].content).toContain('reliability issue');
   });
 });
