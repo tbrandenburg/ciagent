@@ -23,6 +23,23 @@ export interface CIAConfig {
   'api-version'?: string;
   org?: string;
   'log-level'?: string;
+  providers?: {
+    [providerName: string]: {
+      model?: string;
+      baseUrl?: string;
+      apiKey?: string;
+      timeout?: number;
+      [key: string]: unknown;
+    };
+  };
+  mcp?: {
+    servers: Array<{
+      name: string;
+      command: string;
+      args?: string[];
+      env?: Record<string, string>;
+    }>;
+  };
 }
 
 export function loadConfig(cliArgs: Partial<CIAConfig> = {}): CIAConfig {
@@ -124,6 +141,67 @@ function loadConfigFile(filePath: string): Partial<CIAConfig> | null {
   }
 
   return null;
+}
+
+/**
+ * Loads structured configuration sections (providers, mcp) with environment variable substitution.
+ * Performs ${ENV_VAR} substitution in string values.
+ */
+export function loadStructuredConfig(config: CIAConfig): {
+  providers?: CIAConfig['providers'];
+  mcp?: CIAConfig['mcp'];
+} {
+  const result: { providers?: CIAConfig['providers']; mcp?: CIAConfig['mcp'] } = {};
+
+  // Process providers configuration
+  if (config.providers) {
+    result.providers = {};
+    for (const [providerName, providerConfig] of Object.entries(config.providers)) {
+      result.providers[providerName] = substituteEnvironmentVariables(providerConfig);
+    }
+  }
+
+  // Process MCP configuration
+  if (config.mcp) {
+    result.mcp = {
+      servers: config.mcp.servers.map(server => substituteEnvironmentVariables(server)),
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Recursively substitutes environment variables in configuration objects.
+ * Replaces ${ENV_VAR} patterns with corresponding environment variable values.
+ */
+function substituteEnvironmentVariables<T>(obj: T): T {
+  if (typeof obj === 'string') {
+    return obj.replace(/\$\{([^}]+)\}/g, (match, envVar) => {
+      const value = process.env[envVar];
+      if (value === undefined) {
+        console.error(
+          `Warning: Environment variable ${envVar} is not defined, keeping placeholder`
+        );
+        return match;
+      }
+      return value;
+    }) as T;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => substituteEnvironmentVariables(item)) as T;
+  }
+
+  if (obj && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = substituteEnvironmentVariables(value);
+    }
+    return result as T;
+  }
+
+  return obj;
 }
 
 function mergeConfigs(base: Partial<CIAConfig>, override: Partial<CIAConfig>): CIAConfig {

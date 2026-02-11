@@ -214,8 +214,8 @@ We purster a test coverage of >=40% in early stages of the project.
 | 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | complete | - | 1 | - |
 | 3 | Provider reliability | Contract tests, error normalization, retry/backoff | complete  | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
-| 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | in-progress | - | 3 | .claude/PRPs/plans/interface-evolution.plan.md |
-| 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | pending | - | 3.5 | - |
+| 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | complete | - | 3 | .claude/PRPs/plans/interface-evolution.plan.md |
+| 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | in-progress | - | 3.5 | .claude/PRPs/plans/core-infrastructure-fixes.plan.md |
 | 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | pending | - | 3a | - |
 | 3c | Output & advanced features | YAML serialization, Semantic Kernel templates | pending | - | 3b | - |
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3c | - |
@@ -302,9 +302,8 @@ We purster a test coverage of >=40% in early stages of the project.
     - Support conversation history format from CLI spec examples (lines 281-293)
     - Distinguish between plain text and JSON conversation inputs
     - Use updated `IAssistantChat` interface with Message[] arrays (from Phase 3.5)
-  - **Basic Context Integration**: Use `--context` files in LLM requests (basic file reading only)
-    - Read context files and include content in prompts
-    - Defer URL fetching and advanced context handling to Phase 5
+  - **Basic Context Integration**: Use `--context` files in LLM requests (basic _referencing_ only)
+    - Reference context files or URLs in JSON context section (no reading or fetching - the agent does that if needed!)
   - **Timeout Implementation**: Add actual timeout mechanism with proper cancellation
 - **Success signal**: `cia run --provider azure --model gpt-5.2 --input-file conversation.json --context file.txt "test"` works with provider configs loaded from `.cia/config.json`; JSON conversations parsed correctly
 

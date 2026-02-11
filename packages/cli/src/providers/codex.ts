@@ -2,6 +2,14 @@ import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { type ChatChunk, type IAssistantChat, type Message } from './types.js';
 
+interface ProviderConfig {
+  model?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+  [key: string]: unknown;
+}
+
 interface CodexAuth {
   tokens?: {
     id_token?: string;
@@ -32,7 +40,10 @@ export class CodexAssistantChat implements IAssistantChat {
     this.codex = codex;
   }
 
-  static async create(): Promise<CodexAssistantChat> {
+  static async create(config?: ProviderConfig): Promise<CodexAssistantChat> {
+    // TODO: Use config.baseUrl, config.apiKey, config.timeout, config.model in future iterations
+    void config; // Acknowledge config parameter for interface compatibility
+
     const homeDir = process.env.HOME;
     if (!homeDir) {
       throw new Error('HOME is not set. Cannot resolve ~/.codex/auth.json');
