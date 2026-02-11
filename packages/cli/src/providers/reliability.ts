@@ -1,5 +1,5 @@
 import pRetry, { AbortError } from 'p-retry';
-import { IAssistantChat, ChatChunk } from './types.js';
+import { IAssistantChat, ChatChunk, Message } from './types.js';
 import { CommonErrors } from '../shared/errors/error-handling.js';
 import { validateChunkTypes, validateSessionId } from './contract-validator.js';
 import { CIAConfig } from '../shared/config/loader.js';
@@ -14,7 +14,7 @@ export class ReliableAssistantChat implements IAssistantChat {
   }
 
   async *sendQuery(
-    prompt: string,
+    input: string | Message[],
     cwd: string,
     resumeSessionId?: string
   ): AsyncGenerator<ChatChunk> {
@@ -35,7 +35,13 @@ export class ReliableAssistantChat implements IAssistantChat {
 
           try {
             // Collect all chunks from the provider
-            for await (const chunk of this.provider.sendQuery(prompt, cwd, resumeSessionId)) {
+            // Call provider with appropriate overload
+            const queryIterable =
+              typeof input === 'string'
+                ? this.provider.sendQuery(input, cwd, resumeSessionId)
+                : this.provider.sendQuery(input, cwd, resumeSessionId);
+
+            for await (const chunk of queryIterable) {
               // Contract validation if enabled
               if (contractValidation) {
                 if (!validateChunkTypes(chunk)) {

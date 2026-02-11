@@ -1,4 +1,4 @@
-import { type ChatChunk, type IAssistantChat } from './types.js';
+import { type ChatChunk, type IAssistantChat, type Message } from './types.js';
 
 interface ClaudeQueryMessage {
   type?: string;
@@ -18,8 +18,8 @@ function buildSubprocessEnv(): Record<string, string | undefined> {
 
   const hasExplicitTokens = Boolean(
     process.env.CLAUDE_CODE_OAUTH_TOKEN ??
-      process.env.CLAUDE_API_KEY ??
-      process.env.ANTHROPIC_API_KEY
+    process.env.CLAUDE_API_KEY ??
+    process.env.ANTHROPIC_API_KEY
   );
 
   let useGlobalAuth: boolean;
@@ -32,12 +32,8 @@ function buildSubprocessEnv(): Record<string, string | undefined> {
   }
 
   if (useGlobalAuth) {
-    const {
-      CLAUDE_CODE_OAUTH_TOKEN,
-      CLAUDE_API_KEY,
-      ANTHROPIC_API_KEY,
-      ...envWithoutAuth
-    } = process.env;
+    const { CLAUDE_CODE_OAUTH_TOKEN, CLAUDE_API_KEY, ANTHROPIC_API_KEY, ...envWithoutAuth } =
+      process.env;
     return envWithoutAuth;
   }
 
@@ -73,11 +69,19 @@ export class ClaudeAssistantChat implements IAssistantChat {
     return new ClaudeAssistantChat(claudeSdk.query);
   }
 
+  private resolvePrompt(input: string | Message[]): string {
+    if (typeof input === 'string') {
+      return input;
+    }
+    return input.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+  }
+
   async *sendQuery(
-    prompt: string,
+    input: string | Message[],
     cwd: string,
     resumeSessionId?: string
   ): AsyncGenerator<ChatChunk> {
+    const prompt = this.resolvePrompt(input);
     const options: Record<string, unknown> = {
       cwd,
       env: buildSubprocessEnv(),

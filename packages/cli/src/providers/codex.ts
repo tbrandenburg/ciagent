@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
-import { type ChatChunk, type IAssistantChat } from './types.js';
+import { type ChatChunk, type IAssistantChat, type Message } from './types.js';
 
 interface CodexAuth {
   tokens?: {
@@ -70,11 +70,19 @@ export class CodexAssistantChat implements IAssistantChat {
     return new CodexAssistantChat(new codexModule.Codex());
   }
 
+  private resolvePrompt(input: string | Message[]): string {
+    if (typeof input === 'string') {
+      return input;
+    }
+    return input.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+  }
+
   async *sendQuery(
-    prompt: string,
+    input: string | Message[],
     cwd: string,
     resumeSessionId?: string
   ): AsyncGenerator<ChatChunk> {
+    const prompt = this.resolvePrompt(input);
     const threadOptions = {
       workingDirectory: cwd,
       skipGitRepoCheck: true,
@@ -113,9 +121,7 @@ export class CodexAssistantChat implements IAssistantChat {
       }
 
       if (eventType === 'item.completed') {
-        const item = event.item as
-          | { type?: string; text?: string; command?: string }
-          | undefined;
+        const item = event.item as { type?: string; text?: string; command?: string } | undefined;
 
         if (item?.type === 'agent_message' && item.text) {
           yield { type: 'assistant', content: item.text };

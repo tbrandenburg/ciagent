@@ -24,6 +24,9 @@ lint: ## Run linting
 test: ## Run all tests
 	npm run test
 
+test-ci: ## Run tests in CI mode (no watch)
+	npx vitest --run
+
 test-coverage: ## Run tests with coverage report
 	npm run test:coverage
 
@@ -41,10 +44,10 @@ validate-l1: ## Level 1: Static analysis
 	bun run type-check && bun run lint
 
 validate-l2: ## Level 2: Unit tests  
-	npm run test
+	npx vitest --run
 
 validate-l3: ## Level 3: Full suite
-	npm run test && bun run build
+	npx vitest --run && bun run build
 
 validate-l4: ## Level 4: Binary validation
 	bun run build
