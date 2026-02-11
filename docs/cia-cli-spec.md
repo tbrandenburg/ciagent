@@ -64,16 +64,16 @@ Prompt"
 - `--context` (file, folder, or URL; can be provided multiple times)
 
 ## Provider Options
-- `--provider` (`codex`, default: `codex`)
-- `--endpoint` (base URL)
-- `--api-key` (token or key)
-- `--model` (optional model hint)
-- `--api-version` (optional; provider-specific)
-- `--org` (optional; provider-specific)
+- `--provider` (`codex|azure|openai|claude`, default: `codex`)
+- `--model` (model name, overrides config default)
 
-Notes:
-- Environment variables are the default configuration source; CLI flags override them.
-- Supported SDK: Codex SDK
+**Note**: Advanced provider configuration (custom endpoints, API versions, headers) should be configured via `.cia/config.json` rather than CLI flags. See Configuration section below.
+
+Legacy CLI flags (deprecated, use config file instead):
+- `--endpoint` (base URL) 
+- `--api-key` (token or key)
+- `--api-version` (provider-specific)
+- `--org` (provider-specific)
 
 ## Configuration and Authentication
 
@@ -83,9 +83,158 @@ Configuration lookup order (JSON configuration is optional):
 3. `~/.cia/config.json` in user home
 4. Environment variables (fallback)
 
-Environment variable fallbacks:
-- `CIA_PROVIDER` - Provider selection (`codex`)
-- `CIA_MODEL` - Model selection (optional)
+### Configuration Schema
+
+CIA uses a structured configuration format based on OpenCode's schema (https://opencode.ai/config.json), Example:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "azure/gpt-5.2",
+  "provider": {
+    "codex": {
+      "name": "Codex SDK",
+      "auth": {
+        "type": "oauth",
+        "file": "~/.codex/auth.json"
+      },
+      "models": {
+        "gpt-5.3-codex": {
+          "name": "GPT 5.3 Codex",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          }
+        },
+        "gpt-5.2-codex": {
+          "name": "GPT 5.2 Codex"
+        }
+      }
+    },
+    "azure": {
+      "name": "Azure OpenAI",
+      "options": {
+        "baseURL": "https://your-resource.openai.azure.com/",
+        "apiKey": "{env:AZURE_OPENAI_API_KEY}",
+        "apiVersion": "2024-12-01-preview",
+        "headers": {
+          "api-key": "{env:AZURE_OPENAI_API_KEY}"
+        }
+      },
+      "models": {
+        "gpt-5.2": {
+          "name": "GPT 5.2 Azure",
+          "deploymentName": "gpt-5-2-deployment"
+        },
+        "gpt-4o": {
+          "name": "GPT 4o Azure",
+          "deploymentName": "gpt-4o-deployment"
+        }
+      }
+    },
+    "openai": {
+      "name": "OpenAI",
+      "options": {
+        "apiKey": "{env:OPENAI_API_KEY}",
+        "organization": "{env:OPENAI_ORG_ID}",
+        "reasoningEffort": "medium",
+        "store": false
+      },
+      "models": {
+        "gpt-5.1": {
+          "name": "GPT 5.1",
+          "limit": {
+            "context": 272000,
+            "output": 128000
+          },
+          "options": {
+            "reasoningEffort": "low"
+          }
+        },
+        "gpt-4o": {
+          "name": "GPT 4o"
+        }
+      }
+    },
+    "claude": {
+      "name": "Anthropic Claude",
+      "options": {
+        "apiKey": "{env:ANTHROPIC_API_KEY}"
+      },
+      "models": {
+        "claude-3-5-sonnet": {
+          "name": "Claude 3.5 Sonnet"
+        },
+        "claude-3-opus": {
+          "name": "Claude 3 Opus"
+        }
+      }
+    }
+  },
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### Configuration Properties
+
+| Property | Type | Description | Default |
+|----------|------|-------------|---------|
+| `$schema` | string | JSON schema URL for validation | - |
+| `model` | string | Default model in `provider/model` format | `codex/gpt-5.3-codex` |
+| `mode` | string | Execution mode (`lazy` \| `strict`) | `lazy` |
+| `format` | string | Output format (`default` \| `json`) | `default` |
+| `timeout` | number | Request timeout in seconds | 60 |
+| `retries` | number | Number of retry attempts | 1 |
+| `retry-backoff` | boolean | Enable exponential backoff | true |
+| `log-level` | string | Log level (`DEBUG` \| `INFO` \| `WARN` \| `ERROR`) | `INFO` |
+| `providers` | object | Provider configurations | - |
+| `mcp` | object | MCP server configurations | - |
+
+### Provider Configuration
+
+Each provider supports:
+- **name**: Human-readable provider name
+- **options**: Provider-specific configuration (API keys, endpoints, etc.)
+- **models**: Available models with metadata and model-specific options
+- **auth**: Authentication configuration (for providers like Codex)
+
+### Environment Variable Substitution
+
+Configuration values support environment variable substitution using `{env:VAR_NAME}` syntax:
+
+```json
+{
+  "providers": {
+    "azure": {
+      "options": {
+        "apiKey": "{env:AZURE_OPENAI_API_KEY}",
+        "baseURL": "{env:AZURE_OPENAI_ENDPOINT}"
+      }
+    }
+  }
+}
+```
+
+### Environment Variables
+
+CIA supports no environment variables for simplicity!
+
+Only configuration JSON and CLI parameters are supported.
+
+The only supported environment variables are state-of-the-art environment variables like:
+
+- HTTP_PROXY
+- HTTPS_PROXY
+- NO_PROXY
+- NODE_EXTRA_CA_CERTS
+
+### Codex Authentication
 
 Codex authentication is read from `~/.codex/auth.json` with this shape:
 
@@ -98,16 +247,15 @@ Codex authentication is read from `~/.codex/auth.json` with this shape:
 }
 ```
 
-Example config:
+### CLI Override Behavior
 
-```json
-{
-  "provider": "codex",
-  "model": "gpt-5",
-  "timeout": 60,
-  "retries": 1
-}
-```
+CLI flags override configuration file values:
+- `--provider azure` overrides `providers` selection
+- `--model gpt-4o` overrides `model` default
+- `--timeout 120` overrides `timeout` setting
+- `--api-key KEY` overrides provider `options.apiKey`
+
+**Note**: Complex provider options (like custom headers) can only be configured via configuration files, not CLI flags.
 
 ## Schema Enforcement
 - `--schema-file` (JSON Schema file)

@@ -213,14 +213,19 @@ We purster a test coverage of >=40% in early stages of the project.
 |---|-------|-------------|--------|----------|---------|----------|
 | 1 | Core CLI scaffold | Bun setup, Commander.js, arg parsing, env config | complete | - | - | .claude/PRPs/plans/core-cli-scaffold.plan.md |
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | complete | - | 1 | - |
-| 3 | Provider reliability | Contract tests, error normalization, retry/backoff | in-progress | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
-| 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3 | - |
-| 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3, 4 | - |
-| 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3, 4 | - |
+| 3 | Provider reliability | Contract tests, error normalization, retry/backoff | complete  | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
+| 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | pending | - | 3 | - |
+| 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | pending | - | 3a | - |
+| 3c | Output & advanced features | YAML serialization, Semantic Kernel templates | pending | - | 3b | - |
+| 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3c | - |
+| 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3c, 4 | - |
+| 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3c, 4 | - |
 | 7 | MCP/Skills/Tools | Optional integrations for extended capabilities | pending | - | 5, 6, 7 | - |
-| 8 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 6 | 3, 4 | - |
-| 9 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | pending | - | 8 | - |
-| 10 | Packaging & docs | Bun binary, Docker image, README with examples | pending | - | 9 | - |
+| 8 | Enterprise network support | HTTP proxy and custom CA bundle support | pending | with 6 | 3c, 4 | - |
+| 9 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 8 | 3c, 4 | - |
+| 10 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | pending | - | 9 | - |
+| 11 | Packaging & docs | Bun binary, Docker image, README with examples | pending | - | 10 | - |
+| 12 | Legacy cleanup | Remove deprecated environment variable support | pending | - | 11 | - |
 
 ### Phase Details
 
@@ -257,6 +262,53 @@ We purster a test coverage of >=40% in early stages of the project.
   - Ensure missing auth/config fails fast with actionable messages
 - **Success signal**: Contract tests pass; retries and timeouts behave consistently across codex/claude
 
+**Phase 3a: Core Infrastructure Fixes**
+- **Goal**: Fix fundamental CLI processing issues that block all other functionality
+- **Scope**:
+  - **Structured Configuration System**: Implement OpenCode-style configuration schema as defined in `docs/cia-cli-spec.md`
+    - Support `.cia/config.json` with providers, models, and MCP configurations
+    - Implement environment variable substitution (`{env:VAR_NAME}`)
+    - Maintain CLI flag override behavior for common options (`--provider`, `--model`, `--timeout`)
+    - Deprecate individual CLI flags like `--endpoint`, `--api-key` in favor of structured config
+    - **Temporary**: Maintain legacy environment variable support during transition (to be removed in Phase 11)
+  - **Provider Configuration Loading**: Pass structured config to provider create() methods
+    - Load provider-specific options (baseURL, apiKey, headers, etc.) from config
+    - Support multiple providers with different configurations
+    - Enable model-specific options and limits
+  - **JSON Input Processing**: Parse `--input-file` JSON conversation format `{"messages": [...], "context": {...}}` instead of plain text
+    - Support conversation history format from CLI spec examples (lines 178-226, 299-320)
+    - Distinguish between plain text and JSON conversation inputs
+  - **Basic Context Integration**: Use `--context` files in LLM requests (basic file reading only)
+    - Read context files and include content in prompts
+    - Defer URL fetching and advanced context handling to Phase 5
+  - **Timeout Implementation**: Add actual timeout mechanism with proper cancellation
+- **Success signal**: `cia run --provider azure --model gpt-5.2 --input-file conversation.json --context file.txt "test"` works with provider configs loaded from `.cia/config.json`; JSON conversations parsed correctly
+
+**Phase 3b: Schema Enforcement & Validation** 
+- **Goal**: Implement the complex schema enforcement that makes `--mode=strict` actually enforce schemas
+- **Scope**:
+  - **JSON Schema Response Format**: Implement `response_format: {"type": "json_schema", "json_schema": {...}}` in provider calls
+    - Reference implementation approach from `dev/ai-first-devops-toolkit` (pydantic-based validation and retry loop)
+    - Use format templates from `dev/ai-first-devops-toolkit/examples/*/schema.json` as test cases
+    - Examples: sentiment analysis schema (`examples/01-basic/sentiment-analysis/schema.json`), PR description schema (`examples/02-devops/pr-description/schema.json`)
+  - **Schema Validation Retry Logic**: When LLM output doesn't match schema, retry with correction prompts
+    - Reference resilient execution patterns from `dev/ai-first-devops-toolkit/llm_ci_runner/retry.py`
+  - **Exponential Backoff**: Implement proper exponential backoff for `--retry-backoff` option
+  - **Schema Error Handling**: Return proper exit code 2 for schema validation failures
+- **Success signal**: `cia run --mode strict --schema-inline '{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}' "Generate JSON"` enforces schema and retries on invalid output
+
+**Phase 3c: Output & Advanced Features**
+- **Goal**: Polish output formats and add advanced template capabilities
+- **Scope**:
+  - **Output Format Fixes**: Implement proper YAML serialization for `--output-format=yaml`
+    - Reference multi-format output examples from `dev/ai-first-devops-toolkit/examples/06-output-showcase/multi-format-output/`
+    - Fix current broken YAML output (just JSON.stringify with YAML labels)
+  - **Semantic Kernel Template Support**: Add support for embedded schema templates
+    - Support templates like `dev/ai-first-devops-toolkit/examples/05-templates/sem-ker-structured-analysis/template.yaml`
+    - Enable `--template-file` with embedded schema definitions
+  - **Output Validation**: Ensure all output formats (json|yaml|md|text) produce valid, well-formatted results
+- **Success signal**: `cia run --output-format yaml --output-file result.yaml "test"` produces valid YAML; template files with embedded schemas work
+
 **Phase 4: Azure OpenAI Integration**
 - **Goal**: Initial @ai-sdk/azure integration via Vercel AI SDK
 - **Scope**:
@@ -269,13 +321,31 @@ We purster a test coverage of >=40% in early stages of the project.
 - **Success signal**: `cia run --provider azure --model gpt-5.2 "Hello"` could return response from Azure OpenAI (if authenticated)
 
 **Phase 5: Context Handling**
-- **Goal**: `--context` flag loads files, folders, URLs
+- **Goal**: `--context` flag references files, folders, URLs without loading content
 - **Scope**:
-  - File: `fs.readFileSync()` with encoding detection
-  - Folder: Recursive walk respecting `.gitignore`, aggregate files
-  - URL: GitHub API fetch for PRs (`/pulls/:number/files`), issues (`/issues/:number`)
-  - Context passed to `sendQuery()` as structured array
-- **Success signal**: `cia run --context README.md --context https://github.com/org/repo/pull/1 "Summarize"` includes file + PR diff in prompt
+  - File: Reference file path with metadata (size, modified date) but don't read content
+  - Folder: Reference folder path with file listing but don't read file contents
+  - URL: Reference GitHub PR/issue URL with metadata but don't fetch content
+  - Context passed to `IAssistantChat` as structured references in conversation history:
+    ```json
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "..."
+        },
+        {
+          "role": "user", 
+          "content": "..."
+        }
+      ],
+      "context": {
+        "files": [{"path": "README.md", "type": "file", "size": 1234}],
+        "urls": [{"url": "https://github.com/org/repo/pull/1", "type": "github_pr"}]
+      }
+    }
+    ```
+- **Success signal**: `cia run --context README.md --context https://github.com/org/repo/pull/1 "Summarize"` passes file + PR references in context without loading content
 
 **Phase 6: Model Listing**
 - **Goal**: `cia models` shows available models across providers
@@ -295,7 +365,25 @@ We purster a test coverage of >=40% in early stages of the project.
   - All optional, lazy-loaded
 - **Success signal**: `cia run --provider codex --model gpt-5.2 "Which skills do you have"` returns predefined skills + `cia run --provider codex --model gpt-5.2 "What is the weather in New York"` returns weather report based on bash/curl calls
 
-**Phase 8: Streaming Output (v2+)**
+**Phase 8: Enterprise Network Support**
+- **Goal**: Enable CIA to work in enterprise environments with corporate proxies and custom certificates
+- **Scope**:
+  - **HTTP Proxy Support**: Implement standard proxy environment variable support
+    - Support `HTTP_PROXY`, `HTTPS_PROXY` for outbound HTTP requests
+    - Support `NO_PROXY` for bypassing proxy for specific hosts/domains
+    - Ensure all provider SDK HTTP calls respect proxy configuration
+    - Test proxy support with authenticated and unauthenticated proxies
+  - **Custom CA Bundle Support**: Enable custom certificate validation
+    - Support `NODE_EXTRA_CA_CERTS` environment variable for additional CA certificates
+    - Handle self-signed certificates and internal CAs commonly used in enterprises
+    - Ensure certificate validation works across all provider SDKs (Codex, Azure, OpenAI, Claude)
+  - **Network Diagnostics**: Add debugging capabilities for network issues
+    - Verbose logging for proxy and certificate configuration
+    - Clear error messages for certificate validation failures
+    - Connection testing utilities for troubleshooting corporate network issues
+- **Success signal**: CIA works through corporate HTTP proxy with custom CA certificates; `cia run --log-level DEBUG` shows proxy usage; certificate errors provide clear guidance
+
+**Phase 9: Streaming Output (v2+)**
 - **Goal**: Real-time stdout updates as LLM responds (v2+ capability gate)
 - **Scope**:
   - Consume `AsyncGenerator<MessageChunk>` from clients
@@ -304,7 +392,7 @@ We purster a test coverage of >=40% in early stages of the project.
   - Suppress `tool`, `system` unless `--debug`
 - **Success signal**: v2+ only: `cia run "Count to 10"` prints numbers as they arrive, not buffered
 
-**Phase 9: Testing & Benchmarks**
+**Phase 10: Testing & Benchmarks**
 - **Goal**: Confidence in correctness and performance
 - **Scope**:
   - Vitest unit tests for all modules (80%+ coverage)
@@ -312,24 +400,40 @@ We purster a test coverage of >=40% in early stages of the project.
   - Real API integration tests (gated behind `RUN_INTEGRATION_TESTS=1`)
   - Benchmark suite: measure startup time on Bun vs Node, Pi 3 vs x86
   - Target: <100ms overhead, <50MB memory
+  - **Enterprise Network Testing**: Test proxy and CA bundle functionality in realistic enterprise environments
 - **Testing strategy**: Reinforce the global test pyramid targets (70% unit, 20% integration, 10% end-to-end) and cover critical CLI flows end-to-end. Use Codex SDK as the primary end-to-end test provider (auth via `~/.codex/auth.json`).
-- **Success signal**: All tests pass; benchmark shows <100ms on Pi 3 emulator
+- **Success signal**: All tests pass; benchmark shows <100ms on Pi 3 emulator; proxy tests pass in simulated corporate environment
 
-**Phase 10: Packaging & Docs**
+**Phase 11: Packaging & Docs**
 - **Goal**: Distributable artifact and onboarding docs
 - **Scope**:
   - Bun binary: `bun build --compile`
   - Docker image: Multi-stage build with slim Bun base (<50MB)
   - README: Quick start, examples (shell scripts for GitHub Actions, GitLab CI)
-  - API docs: Environment variables, flags, exit codes
+  - API docs: Configuration schema, flags, exit codes
+  - **Enterprise Setup Guide**: Documentation for corporate proxy and certificate configuration
   - LICENSE + CHANGELOG
-- **Success signal**: `docker run ciagent:latest cia --version` works; README has 3+ shell script examples
+- **Success signal**: `docker run ciagent:latest cia --version` works; README has 3+ shell script examples; enterprise setup guide covers common proxy scenarios
+
+**Phase 12: Legacy Cleanup**
+- **Goal**: Remove deprecated environment variable support to keep CLI explicit
+- **Scope**:
+  - **Remove Legacy Environment Variables**: Eliminate support for implicit environment variable configuration
+    - Remove `CIA_*` environment variables (`CIA_PROVIDER`, `CIA_MODEL`, `CIA_TIMEOUT`, etc.)
+    - Remove provider-specific environment variables (`AZURE_OPENAI_*`, `OPENAI_*`, `ANTHROPIC_*`)
+    - Keep only explicit configuration paths: CLI flags and `.cia/config.json`
+    - Maintain `{env:VAR_NAME}` substitution within config files (explicit environment references)
+    - **Preserve Infrastructure Environment Variables**: Keep standard network environment variables (`HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `NODE_EXTRA_CA_CERTS`)
+  - **Update Documentation**: Remove all references to legacy environment variables from help text and docs
+  - **Migration Guide**: Create migration documentation showing how to convert environment variable setups to config files
+  - **Breaking Change Communication**: Clearly document this as a breaking change in CHANGELOG
+- **Success signal**: CLI rejects legacy environment variables with helpful error message directing users to use config files; all tests pass without environment variable dependencies; infrastructure environment variables still work
 
 ### Parallelism Notes
 
 **Phases 3 & 4 (Codex + Azure)** can run in parallel as they implement the same interface independently. Use separate Git branches or worktrees to avoid conflicts. Integration happens in Phase 5 when both are merged.
 
-**Phases 6 & 7 (Models + Streaming)** can run in parallel as they consume provider interfaces without modifying them. Both depend on Phases 3 & 4 being complete.
+**Phases 6, 7, & 8 (Models + MCP + Enterprise Network)** can run in parallel as they consume provider interfaces without modifying them. All depend on Phases 3c & 4 being complete.
 
 ---
 
