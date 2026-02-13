@@ -125,6 +125,13 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
       return timeoutError.code;
     }
 
+    // Check for schema validation errors
+    if (message.includes('Schema validation failed') || message.includes('schema validation')) {
+      const schemaError = CommonErrors.schemaValidationFailed(message);
+      printError(schemaError);
+      return schemaError.code;
+    }
+
     const isAuthOrProviderError =
       message.includes('auth') ||
       message.includes('Unsupported provider') ||

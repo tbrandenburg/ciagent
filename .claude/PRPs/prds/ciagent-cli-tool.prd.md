@@ -215,8 +215,8 @@ We purster a test coverage of >=40% in early stages of the project.
 | 2 | Provider abstraction | Port `IAssistantClient` from POC, factory pattern | complete | - | 1 | - |
 | 3 | Provider reliability | Contract tests, error normalization, retry/backoff | complete  | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
 | 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | complete | - | 3 | .claude/PRPs/plans/interface-evolution.plan.md |
-| 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | in-progress | - | 3.5 | .claude/PRPs/plans/core-infrastructure-fixes.plan.md |
-| 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | pending | - | 3a | - |
+| 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | complete | - | 3.5 | .claude/PRPs/plans/core-infrastructure-fixes.plan.md |
+| 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | in-progress | - | 3a | .claude/PRPs/plans/schema-enforcement-validation.plan.md |
 | 3c | Output & advanced features | YAML serialization, Semantic Kernel templates | pending | - | 3b | - |
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3c | - |
 | 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3c, 4 | - |
