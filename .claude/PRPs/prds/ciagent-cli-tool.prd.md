@@ -216,8 +216,8 @@ We purster a test coverage of >=40% in early stages of the project.
 | 3 | Provider reliability | Contract tests, error normalization, retry/backoff | complete  | - | 2 | .claude/PRPs/plans/provider-reliability.plan.md |
 | 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | complete | - | 3 | .claude/PRPs/plans/interface-evolution.plan.md |
 | 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | complete | - | 3.5 | .claude/PRPs/plans/core-infrastructure-fixes.plan.md |
-| 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | in-progress | - | 3a | .claude/PRPs/plans/schema-enforcement-validation.plan.md |
-| 3c | Output & advanced features | YAML serialization, Semantic Kernel templates | pending | - | 3b | - |
+| 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | complete | - | 3a | .claude/PRPs/plans/schema-enforcement-validation.plan.md |
+| 3c | Template support & output validation | Basic variable substitution, output format validation | pending | - | 3b | - |
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3c | - |
 | 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3c, 4 | - |
 | 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3c, 4 | - |
@@ -320,17 +320,22 @@ We purster a test coverage of >=40% in early stages of the project.
   - **Schema Error Handling**: Return proper exit code 2 for schema validation failures
 - **Success signal**: `cia run --mode strict --schema-inline '{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}' "Generate JSON"` enforces schema and retries on invalid output
 
-**Phase 3c: Output & Advanced Features**
-- **Goal**: Polish output formats and add advanced template capabilities
+**Phase 3c: Template Support & Output Validation**
+- **Goal**: Add basic templating capabilities and polish output formats
 - **Scope**:
-  - **Output Format Fixes**: Implement proper YAML serialization for `--output-format=yaml`
-    - Reference multi-format output examples from `dev/ai-first-devops-toolkit/examples/06-output-showcase/multi-format-output/`
-    - Fix current broken YAML output (just JSON.stringify with YAML labels)
-  - **Semantic Kernel Template Support**: Add support for embedded schema templates
-    - Support templates like `dev/ai-first-devops-toolkit/examples/05-templates/sem-ker-structured-analysis/template.yaml`
-    - Enable `--template-file` with embedded schema definitions
-  - **Output Validation**: Ensure all output formats (json|yaml|md|text) produce valid, well-formatted results
-- **Success signal**: `cia run --output-format yaml --output-file result.yaml "test"` produces valid YAML; template files with embedded schemas work
+  - **Basic Template Support**: Simple variable substitution in plain text template files
+    - Support `--template-file` with any plain text format (.txt, .md, .tpl, .template, etc.)
+    - Variable substitution using `{{variable}}` syntax (e.g., "Analyze {{code}} for {{purpose}}")
+    - Support `--template-vars` JSON string or `--template-vars-file` for variable values
+    - Template files are simple text with no complex parsing - just string replacement
+  - **Output Validation**: Ensure all output formats (json|md|text) produce valid, well-formatted results
+    - Remove YAML serialization support (not needed for current use cases)
+  - **Out of scope**: Advanced templating features (deferred to later phases)
+    - No control sequences (if/else, loops, conditionals)
+    - No Jinja2/Handlebars template engines
+    - No template inheritance or includes
+    - Just simple `{{variable}}` → `value` string replacement
+- **Success signal**: `cia run --template-file review.txt --template-vars '{"code":"function foo(){}","purpose":"security"}' works with simple variable substitution
 
 **Phase 4: Azure OpenAI Integration**
 - **Goal**: Initial @ai-sdk/azure integration via Vercel AI SDK
