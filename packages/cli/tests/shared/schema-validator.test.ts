@@ -4,7 +4,6 @@ import {
   SchemaValidationResult,
 } from '../../src/shared/validation/schema-validator.js';
 import { JSONSchema7 } from 'json-schema';
-import { readFileSync } from 'fs';
 
 describe('SchemaValidator', () => {
   let validator: SchemaValidator;
@@ -54,19 +53,90 @@ describe('SchemaValidator', () => {
     let prDescriptionSchema: JSONSchema7;
 
     beforeEach(() => {
-      // Load PROVEN schemas from ai-first-devops-toolkit examples
-      sentimentSchema = JSON.parse(
-        readFileSync(
-          'dev/ai-first-devops-toolkit/examples/01-basic/sentiment-analysis/schema.json',
-          'utf8'
-        )
-      );
-      prDescriptionSchema = JSON.parse(
-        readFileSync(
-          'dev/ai-first-devops-toolkit/examples/02-devops/pr-description/schema.json',
-          'utf8'
-        )
-      );
+      // PROVEN schemas from ai-first-devops-toolkit examples (inlined for CI compatibility)
+      sentimentSchema = {
+        type: 'object',
+        properties: {
+          sentiment: {
+            type: 'string',
+            enum: ['positive', 'negative', 'neutral'],
+            description: 'Overall sentiment of the content',
+          },
+          confidence: {
+            type: 'number',
+            minimum: 0,
+            maximum: 1,
+            description: 'Confidence score for the sentiment analysis (0-1)',
+          },
+          key_points: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            maxItems: 5,
+            description: 'Main points or topics identified (1-5 items)',
+          },
+          summary: {
+            type: 'string',
+            maxLength: 200,
+            description: 'Brief summary of the content (max 200 characters)',
+          },
+        },
+        required: ['sentiment', 'confidence', 'key_points', 'summary'],
+        additionalProperties: false,
+      };
+
+      prDescriptionSchema = {
+        type: 'object',
+        properties: {
+          description: {
+            type: 'string',
+            minLength: 100,
+            maxLength: 2000,
+            description: 'Comprehensive PR description in markdown format',
+          },
+          summary: {
+            type: 'string',
+            maxLength: 200,
+            description: 'Brief summary of changes',
+          },
+          change_type: {
+            type: 'string',
+            enum: ['feature', 'bugfix', 'refactor', 'documentation', 'test', 'chore', 'breaking'],
+            description: 'Type of change',
+          },
+          impact: {
+            type: 'string',
+            enum: ['low', 'medium', 'high', 'critical'],
+            description: 'Impact on users and system',
+          },
+          testing_notes: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            maxItems: 10,
+            description: 'Testing requirements and notes',
+          },
+          deployment_notes: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 0,
+            maxItems: 5,
+            description: 'Deployment considerations',
+          },
+          breaking_changes: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'List of breaking changes if any',
+          },
+          related_issues: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Related issue numbers or references',
+          },
+        },
+        required: ['description', 'summary', 'change_type', 'impact', 'testing_notes'],
+        additionalProperties: false,
+      };
     });
 
     describe('Sentiment Analysis Schema', () => {
