@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { CIAConfig } from '../config/loader.js';
 
 export interface ValidationResult {
@@ -67,6 +67,35 @@ export function validateConfig(config: CIAConfig): ValidationResult {
       JSON.parse(config['schema-inline']);
     } catch (error) {
       errors.push('Invalid JSON in --schema-inline option.');
+    }
+  }
+
+  if (config['template-file']) {
+    if (!existsSync(config['template-file'])) {
+      errors.push(`Template file not found: ${config['template-file']}`);
+    }
+  }
+
+  if (config['template-vars-file']) {
+    if (!existsSync(config['template-vars-file'])) {
+      errors.push(`Template variables file not found: ${config['template-vars-file']}`);
+    } else if (!config['template-vars-file'].endsWith('.json')) {
+      errors.push(`Template variables file must be a JSON file: ${config['template-vars-file']}`);
+    } else {
+      try {
+        const content = readFileSync(config['template-vars-file'], 'utf8');
+        JSON.parse(content);
+      } catch (error) {
+        errors.push(`Invalid JSON in template variables file: ${config['template-vars-file']}`);
+      }
+    }
+  }
+
+  if (config['template-vars']) {
+    try {
+      JSON.parse(config['template-vars']);
+    } catch (error) {
+      errors.push('Invalid JSON in --template-vars option.');
     }
   }
 
