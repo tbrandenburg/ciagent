@@ -217,7 +217,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | 3.5 | Interface evolution | Extend IAssistantChat to support conversation history arrays | complete | - | 3 | .claude/PRPs/plans/interface-evolution.plan.md |
 | 3a | Core infrastructure fixes | Provider config, JSON input processing, basic context integration | complete | - | 3.5 | .claude/PRPs/plans/core-infrastructure-fixes.plan.md |
 | 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | complete | - | 3a | .claude/PRPs/plans/schema-enforcement-validation.plan.md |
-| 3c | Template support & output validation | Basic variable substitution, output format validation | pending | - | 3b | - |
+| 3c | Template support & output validation | Basic variable substitution, output format validation | complete | - | 3b | .claude/PRPs/plans/template-support-output-validation.plan.md |
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | pending | - | 3c | - |
 | 5 | Context handling | File/folder reading, GitHub API URL fetching | pending | - | 3c, 4 | - |
 | 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3c, 4 | - |
