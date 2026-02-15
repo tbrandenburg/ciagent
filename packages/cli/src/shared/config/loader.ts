@@ -11,6 +11,9 @@ export interface CIAConfig {
   'input-file'?: string;
   'schema-file'?: string;
   'schema-inline'?: string;
+  'template-file'?: string;
+  'template-vars'?: string;
+  'template-vars-file'?: string;
   'output-file'?: string;
   'output-format'?: 'json' | 'yaml' | 'md' | 'text';
   retries?: number;

@@ -4,16 +4,18 @@ import { CIAConfig } from '../shared/config/loader.js';
 import { createAssistantChat } from '../providers/index.js';
 import { CommonErrors, printError } from '../shared/errors/error-handling.js';
 import { ExitCode } from '../utils/exit-codes.js';
+import { processTemplate } from '../utils/template.js';
 
 export async function runCommand(args: string[], config: CIAConfig): Promise<number> {
   const hasPrompt = args.length > 0 && args.join(' ').trim().length > 0;
   const hasInputFile = Boolean(config['input-file']);
+  const hasTemplateFile = Boolean(config['template-file']);
   const hasStdin = (process as any).stdin.isTTY === false;
 
-  if (!hasPrompt && !hasInputFile && !hasStdin) {
+  if (!hasPrompt && !hasInputFile && !hasTemplateFile && !hasStdin) {
     const error = CommonErrors.invalidArgument(
       'prompt',
-      'a positional prompt, --input-file, or stdin pipe'
+      'a positional prompt, --input-file, --template-file, or stdin pipe'
     );
     printError(error);
     return error.code;
@@ -246,6 +248,14 @@ function resolvePrompt(args: string[], config: CIAConfig): string {
   // First, get the base prompt from various sources
   if (args.length > 0) {
     basePrompt = args.join(' ').trim();
+  } else if (config['template-file']) {
+    // Template file can serve as the primary prompt source
+    try {
+      basePrompt = readFileSync(config['template-file'], 'utf8').trim();
+    } catch (error) {
+      // Template file reading errors should be handled by validation
+      basePrompt = '';
+    }
   } else if (config['input-file']) {
     basePrompt = processInputFile(config['input-file']);
   } else if ((process as any).stdin.isTTY === false) {
@@ -255,6 +265,32 @@ function resolvePrompt(args: string[], config: CIAConfig): string {
     } catch (error) {
       // If stdin reading fails, return empty to trigger validation error
       basePrompt = '';
+    }
+  }
+
+  // Process template variables if provided
+  if (config['template-vars'] || config['template-vars-file']) {
+    try {
+      let variables: Record<string, string> = {};
+
+      // Load variables from file if provided
+      if (config['template-vars-file']) {
+        const varsContent = readFileSync(config['template-vars-file'], 'utf8');
+        variables = { ...variables, ...JSON.parse(varsContent) };
+      }
+
+      // Load variables from inline JSON if provided
+      if (config['template-vars']) {
+        variables = { ...variables, ...JSON.parse(config['template-vars']) };
+      }
+
+      basePrompt = processTemplate(basePrompt, variables);
+    } catch (error) {
+      // Template processing errors should be handled by validation
+      // If we reach here, just use the original prompt
+      console.error(
+        `Warning: Template processing failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 

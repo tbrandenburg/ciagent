@@ -30,6 +30,11 @@ export function printHelpText(): void {
   console.log('  --output-format      Output format (json|yaml|md|text)');
   console.log('  --context            Add context files/URLs (multiple allowed)');
   console.log('');
+  console.log('TEMPLATING:');
+  console.log('  --template-file      Template file with {{variable}} placeholders');
+  console.log('  --template-vars      Inline JSON variables for template substitution');
+  console.log('  --template-vars-file JSON file containing template variables');
+  console.log('');
   console.log('SCHEMA VALIDATION:');
   console.log('  --schema-file        JSON schema file for output validation');
   console.log('  --schema-inline      Inline JSON schema for output validation');
@@ -61,6 +66,9 @@ export function printHelpText(): void {
   console.log('');
   console.log('  # Multiple context sources');
   console.log('  cia run "Summarize these docs" --context docs/api.md --context docs/guide.md');
+  console.log('');
+  console.log('  # Template with variables');
+  console.log('  cia run --template-file deploy.template --template-vars-file vars.json');
   console.log('');
   console.log('  # Codex provider');
   console.log('  cia run "Hello world" --provider codex');

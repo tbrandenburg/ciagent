@@ -4,11 +4,7 @@ import { parseArgs } from 'util';
 import { ExitCode } from './utils/exit-codes.js';
 import { loadConfig, type CIAConfig } from './shared/config/loader.js';
 import { validateConfig } from './shared/validation/validation.js';
-import {
-  CommonErrors,
-  printError,
-  handleUnexpectedError,
-} from './shared/errors/error-handling.js';
+import { CommonErrors, printError, handleUnexpectedError } from './shared/errors/error-handling.js';
 import { runCommand } from './commands/run.js';
 import { modelsCommand } from './commands/models.js';
 
@@ -26,6 +22,9 @@ function parseCliArgs(args: string[]) {
       'input-file': { type: 'string' },
       'schema-file': { type: 'string' },
       'schema-inline': { type: 'string' },
+      'template-file': { type: 'string' },
+      'template-vars': { type: 'string' },
+      'template-vars-file': { type: 'string' },
       'output-file': { type: 'string' },
       'output-format': { type: 'string' },
       retries: { type: 'string' },
@@ -52,6 +51,9 @@ function toCliConfig(values: Record<string, unknown>): Partial<CIAConfig> {
     'input-file': values['input-file'] as string | undefined,
     'schema-file': values['schema-file'] as string | undefined,
     'schema-inline': values['schema-inline'] as string | undefined,
+    'template-file': values['template-file'] as string | undefined,
+    'template-vars': values['template-vars'] as string | undefined,
+    'template-vars-file': values['template-vars-file'] as string | undefined,
     'output-file': values['output-file'] as string | undefined,
     'output-format': values['output-format'] as 'json' | 'yaml' | 'md' | 'text' | undefined,
     retries: values.retries ? Number.parseInt(String(values.retries), 10) : undefined,
@@ -71,7 +73,10 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
   try {
     parsedArgs = parseCliArgs(args);
   } catch {
-    const cliError = CommonErrors.invalidArgument('command line arguments', 'valid options and format');
+    const cliError = CommonErrors.invalidArgument(
+      'command line arguments',
+      'valid options and format'
+    );
     printError(cliError);
     await printUsage();
     return cliError.code;
@@ -93,7 +98,10 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
 
   const configValidation = validateConfig(config);
   if (!configValidation.isValid) {
-    const error = CommonErrors.invalidConfig('configuration validation', configValidation.errors.join(', '));
+    const error = CommonErrors.invalidConfig(
+      'configuration validation',
+      configValidation.errors.join(', ')
+    );
     printError(error);
     return error.code;
   }
@@ -162,10 +170,10 @@ async function printUsage(): Promise<void> {
 
 function runCli(): void {
   main()
-    .then((exitCode) => {
+    .then(exitCode => {
       process.exit(exitCode);
     })
-    .catch((error) => {
+    .catch(error => {
       const cliError = handleUnexpectedError(error);
       printError(cliError);
       process.exit(cliError.code);
