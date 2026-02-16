@@ -94,7 +94,7 @@ describe('CLI E2E (Smoke)', () => {
     if (!shouldRunE2ETests) return;
     const result = await runCLI(['run', 'test', '--provider=invalid-provider']);
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('Must be one of: codex, claude.');
+    expect(result.stderr).toContain('Must be one of: azure, codex, claude.');
   });
 
   it('returns auth/config error when no local auth exists', async () => {
