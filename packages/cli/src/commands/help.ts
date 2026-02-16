@@ -2,7 +2,13 @@
  * Help command implementation with complete CLI spec documentation
  */
 
+import { getSupportedProviders } from '../providers/index.js';
+
 export function printHelpText(): void {
+  // Get current list of supported providers dynamically
+  const providers = getSupportedProviders();
+  const providerList = providers.join('|');
+
   console.log('CIA - Vendor-neutral AI agent CLI tool for CI/CD pipelines');
   console.log('');
   console.log('USAGE:');
@@ -19,7 +25,7 @@ export function printHelpText(): void {
   console.log('  -v, --version        Show version information');
   console.log('');
   console.log('CORE OPTIONS:');
-  console.log('  -p, --provider       AI provider (codex|claude) [default: codex]');
+  console.log('  -p, --provider       AI provider (' + providerList + ') [default: codex]');
   console.log('  -m, --model          Model name (optional)');
   console.log('  --mode               Execution mode (lazy|strict) [default: lazy]');
   console.log('  --format             Output format (default|json) [default: default]');

@@ -1,0 +1,106 @@
+import type { LanguageModel } from 'ai';
+
+/**
+ * Provider configuration for Vercel AI SDK providers
+ */
+export interface VercelProviderConfig {
+  model?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+  // Azure-specific options
+  resourceName?: string;
+  // OpenAI-specific options
+  organization?: string;
+  // Google-specific options
+  projectId?: string;
+  // Anthropic-specific options
+  version?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Extensible factory for creating Vercel AI SDK provider instances
+ * Adding new providers requires only adding to the switch statement and dependency
+ */
+export class VercelProviderFactory {
+  /**
+   * Create a Vercel provider instance based on type
+   * @param type - Provider type ('azure', 'openai', 'google', 'anthropic', etc.)
+   * @param config - Provider-specific configuration
+   * @returns LanguageModel instance for the specified provider
+   */
+  static async createProvider(type: string, config?: VercelProviderConfig): Promise<LanguageModel> {
+    switch (type) {
+      case 'azure': {
+        const azureModule = await import('@ai-sdk/azure');
+
+        if (config?.resourceName || config?.apiKey) {
+          // Custom configuration
+          const azureProvider = azureModule.createAzure({
+            resourceName: config.resourceName,
+            apiKey: config.apiKey,
+            baseURL: config.baseUrl,
+          });
+          return azureProvider(config?.model || 'gpt-4o');
+        } else {
+          // Default configuration using environment variables
+          return azureModule.azure(config?.model || 'gpt-4o');
+        }
+      }
+
+      // Future providers will be added here with dynamic imports:
+      // case 'openai': {
+      //   const openaiModule = await import('@ai-sdk/openai');
+      //   if (config?.apiKey || config?.organization || config?.baseUrl) {
+      //     const openaiProvider = openaiModule.createOpenAI({
+      //       apiKey: config.apiKey,
+      //       organization: config.organization,
+      //       baseURL: config.baseUrl,
+      //     });
+      //     return openaiProvider(config?.model || 'gpt-4o');
+      //   } else {
+      //     return openaiModule.openai(config?.model || 'gpt-4o');
+      //   }
+      // }
+      //
+      // case 'google': {
+      //   const googleModule = await import('@ai-sdk/google');
+      //   if (config?.apiKey || config?.projectId) {
+      //     const googleProvider = googleModule.createGoogleGenerativeAI({
+      //       apiKey: config.apiKey,
+      //     });
+      //     return googleProvider(config?.model || 'gemini-1.5-pro');
+      //   } else {
+      //     return googleModule.google(config?.model || 'gemini-1.5-pro');
+      //   }
+      // }
+      //
+      // case 'anthropic': {
+      //   const anthropicModule = await import('@ai-sdk/anthropic');
+      //   if (config?.apiKey || config?.version) {
+      //     const anthropicProvider = anthropicModule.createAnthropic({
+      //       apiKey: config.apiKey,
+      //       version: config.version,
+      //     });
+      //     return anthropicProvider(config?.model || 'claude-3-5-sonnet-20241022');
+      //   } else {
+      //     return anthropicModule.anthropic(config?.model || 'claude-3-5-sonnet-20241022');
+      //   }
+      // }
+
+      default:
+        throw new Error(
+          `Unsupported Vercel provider: ${type}. Currently supported: azure. Future support planned for: openai, google, anthropic`
+        );
+    }
+  }
+
+  /**
+   * Get list of supported provider types
+   * @returns Array of supported provider type strings
+   */
+  static getSupportedProviders(): string[] {
+    return ['azure']; // Will expand to ['azure', 'openai', 'google', 'anthropic'] as dependencies are added
+  }
+}

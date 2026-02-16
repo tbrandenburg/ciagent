@@ -1,11 +1,15 @@
 import { CodexAssistantChat } from './codex.js';
 import { ClaudeAssistantChat } from './claude.js';
+import { VercelAssistantChat } from './vercel.js';
 import { ReliableAssistantChat } from './reliability.js';
 import { SchemaValidatingChat } from './schema-validating-chat.js';
 import { type IAssistantChat } from './types.js';
 import { type CIAConfig, loadStructuredConfig } from '../shared/config/loader.js';
 import { readFileSync } from 'fs';
 import { JSONSchema7 } from 'json-schema';
+
+// Extensible list of supported Vercel providers
+const VERCEL_PROVIDERS = ['azure']; // Will expand as new Vercel providers are added
 
 export async function createAssistantChat(
   provider: string,
@@ -17,12 +21,18 @@ export async function createAssistantChat(
   const structuredConfig = config ? loadStructuredConfig(config) : undefined;
   const providerConfig = structuredConfig?.providers?.[provider];
 
-  if (provider === 'codex') {
+  // Check if it's a Vercel provider first (extensible pattern)
+  if (VERCEL_PROVIDERS.includes(provider)) {
+    assistantChat = await VercelAssistantChat.create(provider, providerConfig);
+  } else if (provider === 'codex') {
     assistantChat = await CodexAssistantChat.create(providerConfig);
   } else if (provider === 'claude') {
     assistantChat = await ClaudeAssistantChat.create(providerConfig);
   } else {
-    throw new Error(`Unsupported provider: ${provider}. Supported: codex, claude.`);
+    const allSupportedProviders = [...VERCEL_PROVIDERS, 'codex', 'claude'];
+    throw new Error(
+      `Unsupported provider: ${provider}. Supported: ${allSupportedProviders.join(', ')}.`
+    );
   }
 
   // Conditionally wrap with reliability features if configuration provided
@@ -72,6 +82,13 @@ function loadSchemaFromConfig(config: CIAConfig): JSONSchema7 {
   throw new Error(
     'No schema provided - this should not happen as validation should catch this earlier'
   );
+}
+
+/**
+ * Get all supported provider names for CLI help and validation
+ */
+export function getSupportedProviders(): string[] {
+  return [...VERCEL_PROVIDERS, 'codex', 'claude'];
 }
 
 export * from './types.js';
