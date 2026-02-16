@@ -45,7 +45,7 @@ describe('Help Command', () => {
     printHelpText();
 
     const allOutput = consoleSpy.mock.calls.flat().join('\n');
-    expect(allOutput).toContain('AI provider (codex|claude) [default: codex]');
+    expect(allOutput).toContain('AI provider (azure|codex|claude) [default: codex]');
   });
 
   it('should include mode options', () => {

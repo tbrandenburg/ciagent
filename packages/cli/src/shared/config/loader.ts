@@ -32,6 +32,14 @@ export interface CIAConfig {
       baseUrl?: string;
       apiKey?: string;
       timeout?: number;
+      // Azure-specific options
+      resourceName?: string;
+      // OpenAI-specific options
+      organization?: string;
+      // Google-specific options
+      projectId?: string;
+      // Anthropic-specific options
+      version?: string;
       [key: string]: unknown;
     };
   };
@@ -69,6 +77,47 @@ function loadFromEnv(): Partial<CIAConfig> {
     loadDotEnvFile(globalEnvPath);
   }
 
+  // Build providers config from environment variables
+  const providers: CIAConfig['providers'] = {};
+
+  // Azure provider configuration
+  if (process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_ENDPOINT) {
+    providers.azure = {
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      baseUrl: process.env.AZURE_OPENAI_ENDPOINT,
+      resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME,
+      model: process.env.AZURE_OPENAI_MODEL,
+    };
+  }
+
+  // OpenAI provider configuration
+  if (process.env.OPENAI_API_KEY) {
+    providers.openai = {
+      apiKey: process.env.OPENAI_API_KEY,
+      baseUrl: process.env.OPENAI_BASE_URL,
+      organization: process.env.OPENAI_ORG_ID,
+      model: process.env.OPENAI_MODEL,
+    };
+  }
+
+  // Google provider configuration
+  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    providers.google = {
+      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+      projectId: process.env.GOOGLE_CLOUD_PROJECT,
+      model: process.env.GOOGLE_MODEL,
+    };
+  }
+
+  // Anthropic provider configuration
+  if (process.env.ANTHROPIC_API_KEY) {
+    providers.anthropic = {
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      version: process.env.ANTHROPIC_VERSION,
+      model: process.env.ANTHROPIC_MODEL,
+    };
+  }
+
   return {
     provider: process.env.CIA_PROVIDER,
     model: process.env.CIA_MODEL,
@@ -85,6 +134,8 @@ function loadFromEnv(): Partial<CIAConfig> {
       ? parseInt(process.env.CIA_RETRY_TIMEOUT, 10)
       : undefined,
     'contract-validation': process.env.CIA_CONTRACT_VALIDATION === 'true',
+    // Only include providers if at least one was configured
+    ...(Object.keys(providers).length > 0 && { providers }),
   };
 }
 

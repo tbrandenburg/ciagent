@@ -1,0 +1,108 @@
+{
+  "// CIAGENT CONFIGURATION": "Extensible AI provider configuration with Vercel AI SDK support",
+  
+  "// DEFAULT PROVIDER SETTINGS": "Global defaults can be overridden by specific provider configurations",
+  "provider": "azure",
+  "model": "gpt-4o",
+  "timeout": 30000,
+  "retries": 3,
+  "retry-backoff": true,
+  "retry-timeout": 5000,
+  
+  "// VERCEL AI SDK PROVIDERS": "Extensible architecture supporting multiple AI providers",
+  "providers": {
+    "azure": {
+      "model": "gpt-4o",
+      "resourceName": "${AZURE_OPENAI_RESOURCE_NAME}",
+      "apiKey": "${AZURE_OPENAI_API_KEY}",
+      "baseUrl": "${AZURE_OPENAI_ENDPOINT}",
+      "timeout": 30000
+    },
+    "openai": {
+      "// NOTE": "OpenAI support planned - will be enabled when @ai-sdk/openai dependency is added",
+      "model": "gpt-4o",
+      "apiKey": "${OPENAI_API_KEY}",
+      "organization": "${OPENAI_ORG_ID}",
+      "baseUrl": "${OPENAI_BASE_URL}",
+      "timeout": 25000
+    },
+    "google": {
+      "// NOTE": "Google support planned - will be enabled when @ai-sdk/google dependency is added",
+      "model": "gemini-1.5-pro",
+      "apiKey": "${GOOGLE_GENERATIVE_AI_API_KEY}",
+      "projectId": "${GOOGLE_CLOUD_PROJECT}",
+      "timeout": 35000
+    },
+    "anthropic": {
+      "// NOTE": "Anthropic support planned - will be enabled when @ai-sdk/anthropic dependency is added",
+      "model": "claude-3-5-sonnet-20241022",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "version": "${ANTHROPIC_VERSION}",
+      "timeout": 40000
+    }
+  },
+  
+  "// EXTENSIBLE CONFIGURATION": "Add custom properties for future provider types",
+  "providers_extended_example": {
+    "custom-provider": {
+      "model": "custom-model-v1",
+      "apiKey": "${CUSTOM_API_KEY}",
+      "customProperty": "custom-value",
+      "advancedSettings": {
+        "temperature": 0.7,
+        "maxTokens": 2048,
+        "topP": 0.9
+      }
+    }
+  },
+  
+  "// ENVIRONMENT VARIABLE SUBSTITUTION": "Use ${ENV_VAR} syntax for secure credential management",
+  "environment_examples": {
+    "azure_env_vars": [
+      "AZURE_OPENAI_API_KEY",
+      "AZURE_OPENAI_ENDPOINT", 
+      "AZURE_OPENAI_RESOURCE_NAME",
+      "AZURE_OPENAI_MODEL"
+    ],
+    "openai_env_vars": [
+      "OPENAI_API_KEY",
+      "OPENAI_ORG_ID",
+      "OPENAI_BASE_URL",
+      "OPENAI_MODEL"
+    ],
+    "google_env_vars": [
+      "GOOGLE_GENERATIVE_AI_API_KEY",
+      "GOOGLE_CLOUD_PROJECT",
+      "GOOGLE_MODEL"
+    ],
+    "anthropic_env_vars": [
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_VERSION", 
+      "ANTHROPIC_MODEL"
+    ]
+  },
+  
+  "// USAGE EXAMPLES": "How to use the extensible provider system",
+  "usage": {
+    "select_provider": "cia --provider azure",
+    "override_model": "cia --provider azure --model gpt-4o-mini", 
+    "custom_config": "cia --provider openai --model gpt-4-turbo",
+    "environment_based": "Set AZURE_OPENAI_API_KEY and use 'cia --provider azure'"
+  },
+  
+  "// EXTENSIBILITY NOTES": {
+    "current_support": "Azure OpenAI via Vercel AI SDK (@ai-sdk/azure)",
+    "planned_support": [
+      "OpenAI (@ai-sdk/openai)",
+      "Google Generative AI (@ai-sdk/google)", 
+      "Anthropic Claude (@ai-sdk/anthropic)"
+    ],
+    "adding_providers": "Adding new providers requires only: 1) npm install @ai-sdk/provider 2) Add case to vercel-factory.ts 3) Update VERCEL_PROVIDERS array",
+    "configuration_benefits": [
+      "Environment variable substitution with ${VAR} syntax",
+      "Extensible schema supports arbitrary provider properties",
+      "Multiple config sources: env vars, ~/.cia/config.json, ./.cia/config.json, CLI args",
+      "Provider-specific overrides while maintaining global defaults"
+    ]
+  }
+}

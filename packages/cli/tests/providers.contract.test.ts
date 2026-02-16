@@ -56,6 +56,35 @@ function mockProviderSdks(): void {
         yield { type: 'result', session_id: 'claude-session-456' };
       })(),
   }));
+
+  // Mock Vercel AI SDK with generic pattern that works for any provider
+  vi.mock('ai', () => ({
+    streamText: async ({ model, prompt }: { model: any; prompt: string }) => {
+      // Mock response format same across all Vercel providers
+      return {
+        textStream: (async function* () {
+          yield 'hello from ';
+          yield `vercel ${model?.providerId || 'azure'}`;
+          yield ' provider';
+        })(),
+      };
+    },
+  }));
+
+  // Mock Azure provider (first concrete example)
+  vi.mock('@ai-sdk/azure', () => ({
+    azure: (model: string) => ({
+      providerId: 'azure',
+      modelId: model,
+    }),
+    createAzure: (config: any) => {
+      return (model: string) => ({
+        providerId: 'azure',
+        modelId: model,
+        config,
+      });
+    },
+  }));
 }
 
 async function collectChunks(generator: AsyncGenerator<ChatChunk>): Promise<ChatChunk[]> {
@@ -98,54 +127,63 @@ describe('providers contract', () => {
 
     const codex = await createAssistantChat('codex');
     const claude = await createAssistantChat('claude');
+    const azure = await createAssistantChat('azure');
 
     expect(codex.getType()).toBe('codex');
     expect(claude.getType()).toBe('claude');
+    expect(azure.getType()).toBe('vercel-azure');
     await expect(createAssistantChat('unsupported')).rejects.toThrow('Unsupported provider');
   });
 
-  it('both providers emit only allowed chunk types and result carries sessionId', async () => {
+  it('all providers emit only allowed chunk types and result carries sessionId', async () => {
     mockProviderSdks();
     const { createAssistantChat } = await import('../src/providers/index.js');
 
     const codex = await createAssistantChat('codex');
     const claude = await createAssistantChat('claude');
+    const azure = await createAssistantChat('azure');
 
     const codexChunks = await collectChunks(codex.sendQuery('prompt', '/tmp'));
     const claudeChunks = await collectChunks(claude.sendQuery('prompt', '/tmp'));
+    const azureChunks = await collectChunks(azure.sendQuery('prompt', '/tmp'));
 
-    for (const chunk of [...codexChunks, ...claudeChunks]) {
+    for (const chunk of [...codexChunks, ...claudeChunks, ...azureChunks]) {
       expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
     }
 
     const codexResult = codexChunks.find(chunk => chunk.type === 'result');
     const claudeResult = claudeChunks.find(chunk => chunk.type === 'result');
+    const azureResult = azureChunks.find(chunk => chunk.type === 'result');
 
     expect(codexResult?.sessionId).toBeTruthy();
     expect(claudeResult?.sessionId).toBeTruthy();
+    expect(azureResult?.sessionId).toBeTruthy();
   });
 
   describe('interface overloading support', () => {
-    it('both providers support string inputs (backward compatibility)', async () => {
+    it('all providers support string inputs (backward compatibility)', async () => {
       mockProviderSdks();
       const { createAssistantChat } = await import('../src/providers/index.js');
 
       const codex = await createAssistantChat('codex');
       const claude = await createAssistantChat('claude');
+      const azure = await createAssistantChat('azure');
 
       const codexChunks = await collectChunks(codex.sendQuery('test prompt', '/tmp'));
       const claudeChunks = await collectChunks(claude.sendQuery('test prompt', '/tmp'));
+      const azureChunks = await collectChunks(azure.sendQuery('test prompt', '/tmp'));
 
       expect(codexChunks.length).toBeGreaterThan(0);
       expect(claudeChunks.length).toBeGreaterThan(0);
+      expect(azureChunks.length).toBeGreaterThan(0);
 
       // Verify chunk types are still valid
-      for (const chunk of [...codexChunks, ...claudeChunks]) {
+      for (const chunk of [...codexChunks, ...claudeChunks, ...azureChunks]) {
         expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
       }
     });
 
-    it('both providers support Message[] inputs (new functionality)', async () => {
+    it('all providers support Message[] inputs (new functionality)', async () => {
       mockProviderSdks();
       const { createAssistantChat } = await import('../src/providers/index.js');
 
@@ -156,24 +194,29 @@ describe('providers contract', () => {
 
       const codex = await createAssistantChat('codex');
       const claude = await createAssistantChat('claude');
+      const azure = await createAssistantChat('azure');
 
       const codexChunks = await collectChunks(codex.sendQuery(messages, '/tmp'));
       const claudeChunks = await collectChunks(claude.sendQuery(messages, '/tmp'));
+      const azureChunks = await collectChunks(azure.sendQuery(messages, '/tmp'));
 
       expect(codexChunks.length).toBeGreaterThan(0);
       expect(claudeChunks.length).toBeGreaterThan(0);
+      expect(azureChunks.length).toBeGreaterThan(0);
 
       // Verify chunk types are still valid
-      for (const chunk of [...codexChunks, ...claudeChunks]) {
+      for (const chunk of [...codexChunks, ...claudeChunks, ...azureChunks]) {
         expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
       }
 
       // Verify sessionIds are preserved
       const codexResult = codexChunks.find(chunk => chunk.type === 'result');
       const claudeResult = claudeChunks.find(chunk => chunk.type === 'result');
+      const azureResult = azureChunks.find(chunk => chunk.type === 'result');
 
       expect(codexResult?.sessionId).toBeTruthy();
       expect(claudeResult?.sessionId).toBeTruthy();
+      expect(azureResult?.sessionId).toBeTruthy();
     });
   });
 
@@ -231,5 +274,57 @@ describe('providers contract', () => {
     expect(chunks).toHaveLength(1);
     expect(chunks[0].type).toBe('error');
     expect(chunks[0].content).toContain('reliability issue');
+  });
+
+  describe('Vercel provider extensibility', () => {
+    it('generic Vercel adapter works with Azure provider', async () => {
+      mockProviderSdks();
+      const { createAssistantChat } = await import('../src/providers/index.js');
+
+      const azure = await createAssistantChat('azure');
+      expect(azure.getType()).toBe('vercel-azure');
+
+      const azureChunks = await collectChunks(azure.sendQuery('test with azure', '/tmp'));
+
+      // Should have assistant content and result
+      expect(azureChunks.length).toBeGreaterThan(1);
+
+      // Check content appears (from our mock)
+      const assistantChunks = azureChunks.filter(chunk => chunk.type === 'assistant');
+      const content = assistantChunks.map(chunk => chunk.content).join('');
+      expect(content).toContain('vercel azure provider');
+
+      // Check result chunk
+      const resultChunk = azureChunks.find(chunk => chunk.type === 'result');
+      expect(resultChunk).toBeDefined();
+      expect(resultChunk?.sessionId).toBeTruthy();
+    });
+
+    it('Vercel adapter handles provider configuration', async () => {
+      mockProviderSdks();
+      const { createAssistantChat } = await import('../src/providers/index.js');
+
+      // Test with custom configuration
+      const config = {
+        providers: {
+          azure: {
+            model: 'custom-model',
+            resourceName: 'test-resource',
+            apiKey: 'test-key',
+          },
+        },
+      };
+
+      const azure = await createAssistantChat('azure', config);
+      expect(azure.getType()).toBe('vercel-azure');
+
+      const azureChunks = await collectChunks(azure.sendQuery('test with config', '/tmp'));
+      expect(azureChunks.length).toBeGreaterThan(0);
+
+      // Verify all chunks follow contract
+      for (const chunk of azureChunks) {
+        expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
+      }
+    });
   });
 });
