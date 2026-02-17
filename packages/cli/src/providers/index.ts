@@ -3,6 +3,7 @@ import { ClaudeAssistantChat } from './claude.js';
 import { VercelAssistantChat } from './vercel.js';
 import { ReliableAssistantChat } from './reliability.js';
 import { SchemaValidatingChat } from './schema-validating-chat.js';
+import { mcpProvider } from './mcp.js';
 import { type IAssistantChat } from './types.js';
 import { type CIAConfig, loadStructuredConfig } from '../shared/config/loader.js';
 import { readFileSync } from 'fs';
@@ -16,6 +17,24 @@ export async function createAssistantChat(
   config?: CIAConfig
 ): Promise<IAssistantChat> {
   let assistantChat: IAssistantChat;
+
+  // Initialize MCP provider if MCP configuration is present
+  if (config) {
+    const structuredConfig = loadStructuredConfig(config);
+    if (structuredConfig?.mcp && Object.keys(structuredConfig.mcp).length > 0) {
+      try {
+        console.log('[Provider Factory] Initializing MCP provider...');
+        await mcpProvider.initialize(config);
+        const healthInfo = mcpProvider.getHealthInfo();
+        console.log(
+          `[Provider Factory] MCP provider initialized: ${healthInfo.connectedServers}/${healthInfo.serverCount} servers connected, ${healthInfo.toolCount} tools available`
+        );
+      } catch (error) {
+        console.error('[Provider Factory] MCP provider initialization failed:', error);
+        // Continue without MCP - non-blocking
+      }
+    }
+  }
 
   // Load structured configuration with environment variable substitution
   const structuredConfig = config ? loadStructuredConfig(config) : undefined;
@@ -89,6 +108,27 @@ function loadSchemaFromConfig(config: CIAConfig): JSONSchema7 {
  */
 export function getSupportedProviders(): string[] {
   return [...VERCEL_PROVIDERS, 'codex', 'claude'];
+}
+
+/**
+ * Get MCP provider health status for diagnostics
+ */
+export function getMCPStatus() {
+  return mcpProvider.getHealthInfo();
+}
+
+/**
+ * Refresh MCP connections
+ */
+export async function refreshMCP(): Promise<void> {
+  await mcpProvider.refresh();
+}
+
+/**
+ * Execute an MCP tool by ID
+ */
+export async function executeMCPTool(toolId: string, args: unknown): Promise<any> {
+  return mcpProvider.executeTool(toolId, args);
 }
 
 export * from './types.js';

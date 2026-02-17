@@ -7,6 +7,7 @@ import { validateConfig } from './shared/validation/validation.js';
 import { CommonErrors, printError, handleUnexpectedError } from './shared/errors/error-handling.js';
 import { runCommand } from './commands/run.js';
 import { modelsCommand } from './commands/models.js';
+import { mcpCommand } from './commands/mcp.js';
 
 function parseCliArgs(args: string[]) {
   return parseArgs({
@@ -118,6 +119,8 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
       return await runCommand(positionals.slice(1), config);
     case 'models':
       return await modelsCommand(config);
+    case 'mcp':
+      return await mcpCommand(positionals.slice(1), config);
     default: {
       const error = CommonErrors.unknownCommand(command);
       printError(error);
@@ -156,6 +159,7 @@ async function printUsage(): Promise<void> {
   console.log('Commands:');
   console.log('  run <prompt>    Execute AI prompt');
   console.log('  models          List available models (phase-1 scaffold)');
+  console.log('  mcp             MCP server management');
   console.log('');
   console.log('Options:');
   console.log('  -h, --help      Show help information');

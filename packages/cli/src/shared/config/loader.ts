@@ -44,9 +44,11 @@ export interface CIAConfig {
       [key: string]: unknown;
     };
   };
-  mcp?: {
-    servers: MCPServerConfig[];
-  };
+  mcp?:
+    | {
+        servers: MCPServerConfig[];
+      }
+    | Record<string, Omit<MCPServerConfig, 'name'>>;
   skills?: SkillsConfig;
   tools?: ToolRegistryConfig;
 }
@@ -220,11 +222,28 @@ export function loadStructuredConfig(config: CIAConfig): {
     }
   }
 
-  // Process MCP configuration
+  // Process MCP configuration (support both array and object-based formats)
   if (config.mcp) {
-    result.mcp = {
-      servers: config.mcp.servers.map(server => substituteEnvironmentVariables(server)),
-    };
+    if ('servers' in config.mcp && Array.isArray(config.mcp.servers)) {
+      // CIA Agent format: { mcp: { servers: [...] } }
+      result.mcp = {
+        servers: config.mcp.servers.map(server => substituteEnvironmentVariables(server)),
+      };
+    } else {
+      // OpenCode format: { mcp: { serverName: { type: "local", ... }, ... } }
+      const servers: MCPServerConfig[] = [];
+      for (const [serverName, serverConfig] of Object.entries(config.mcp as Record<string, any>)) {
+        if (typeof serverConfig === 'object' && serverConfig !== null && 'type' in serverConfig) {
+          servers.push(
+            substituteEnvironmentVariables({
+              name: serverName,
+              ...serverConfig,
+            })
+          );
+        }
+      }
+      result.mcp = { servers };
+    }
   }
 
   // Process Skills configuration

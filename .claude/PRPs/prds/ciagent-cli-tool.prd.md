@@ -222,7 +222,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | 5 | Context handling | File/folder referencing, GitHub API URL referencing | complete | - | 3c, 4 | .claude/PRPs/plans/context-handling.plan.md |
 | 6 | Model listing | `cia models` command across all providers | complete | with 7.1-7.6, 8 | 3c, 4 | .claude/PRPs/plans/model-listing.plan.md |
 | 7.1 | Core infrastructure enhancement | Enhanced MessageChunk types, tool registry, session context, config migration | complete | with 6, 8 | 5 | .claude/PRPs/plans/core-infrastructure-enhancement.plan.md |
-| 7.2 | MCP integration framework | Complete MCP manager with OAuth authentication and robust error handling | pending | with 7.3 | 7.1 | - |
+| 7.2 | MCP integration framework | Complete MCP manager with OAuth authentication and robust error handling | complete | with 7.3 | 7.1 | - |
 | 7.3 | Skills system integration | Multi-source skills discovery, SKILL.md parsing, progressive disclosure | pending | with 7.2 | 7.1 | - |
 | 7.4 | Enhanced orchestration | Integrate MCP and Skills into existing orchestrator, preserve IAssistantClient | pending | - | 7.2, 7.3 | - |
 | 7.5 | CIA CLI enhancement | MCP and Skills management commands, enhanced status reporting | pending | with 8 | 7.4 | - |

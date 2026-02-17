@@ -1,41 +1,164 @@
 import { describe, it, expect } from 'vitest';
 import {
-  validateMCPServerConfig,
+  MCPServerConfig,
+  MCPLocalServerConfig,
+  MCPRemoteServerConfig,
+  LegacyMCPServerConfig,
+  validateMCPConfig,
+  validateMCPLocalServerConfig,
+  validateMCPRemoteServerConfig,
+  validateLegacyMCPServerConfig,
   validateSkillsConfig,
   validateToolRegistryConfig,
   validateConfigSection,
-} from '../../../src/shared/config/schema';
+} from '../../../src/shared/config/schema.js';
 
-describe('Config Schema Validation', () => {
-  describe('MCP Server Configuration', () => {
-    it('should validate valid MCP server config', () => {
-      const validConfig = {
-        name: 'test-server',
-        command: 'node server.js',
-        args: ['--port', '3000'],
-        env: { NODE_ENV: 'production' },
+describe('Enhanced MCP Configuration Schema', () => {
+  describe('MCPLocalServerConfig validation', () => {
+    it('should validate a valid local server config', () => {
+      const config = {
+        type: 'local' as const,
+        command: 'git-mcp-server',
+        args: ['--verbose'],
+        environment: { GIT_MCP_DEBUG: '1' },
+        timeout: 15000,
+        enabled: true,
       };
 
-      expect(validateMCPServerConfig(validConfig)).toBe(true);
+      expect(validateMCPLocalServerConfig(config)).toBe(true);
     });
 
-    it('should reject invalid MCP server config', () => {
-      const invalidConfig = {
-        name: 'test-server',
-        // missing required command
-        args: ['--port', '3000'],
+    it('should require type and command fields', () => {
+      const invalidConfigs = [
+        { command: 'test' }, // missing type
+        { type: 'local' }, // missing command
+        { type: 'remote', command: 'test' }, // wrong type
+      ];
+
+      invalidConfigs.forEach(config => {
+        expect(validateMCPLocalServerConfig(config)).toBe(false);
+      });
+    });
+  });
+
+  describe('MCPRemoteServerConfig validation', () => {
+    it('should validate a valid remote server config with OAuth', () => {
+      const config = {
+        type: 'remote' as const,
+        url: 'https://api.github.com/mcp',
+        oauth: {
+          clientId: 'your-client-id',
+          scope: 'repo:read',
+        },
+        timeout: 30000,
+        enabled: true,
       };
 
-      expect(validateMCPServerConfig(invalidConfig)).toBe(false);
+      expect(validateMCPRemoteServerConfig(config)).toBe(true);
     });
 
-    it('should validate MCP server config with minimal fields', () => {
-      const minimalConfig = {
-        name: 'test-server',
-        command: 'node server.js',
+    it('should validate a remote server config without OAuth', () => {
+      const config = {
+        type: 'remote' as const,
+        url: 'https://api.example.com/mcp',
+        headers: { Authorization: 'Bearer token' },
       };
 
-      expect(validateMCPServerConfig(minimalConfig)).toBe(true);
+      expect(validateMCPRemoteServerConfig(config)).toBe(true);
+    });
+
+    it('should require type and url fields', () => {
+      const invalidConfigs = [
+        { url: 'https://example.com' }, // missing type
+        { type: 'remote' }, // missing url
+        { type: 'local', url: 'https://example.com' }, // wrong type
+      ];
+
+      invalidConfigs.forEach(config => {
+        expect(validateMCPRemoteServerConfig(config)).toBe(false);
+      });
+    });
+  });
+
+  describe('Legacy MCP config validation', () => {
+    it('should validate a valid legacy config', () => {
+      const config = {
+        name: 'git-server',
+        command: 'git-mcp-server',
+        args: ['--verbose'],
+        env: { GIT_MCP_DEBUG: '1' },
+      };
+
+      expect(validateLegacyMCPServerConfig(config)).toBe(true);
+    });
+
+    it('should require name and command fields', () => {
+      const invalidConfigs = [
+        { command: 'test' }, // missing name
+        { name: 'test' }, // missing command
+        {}, // missing both
+      ];
+
+      invalidConfigs.forEach(config => {
+        expect(validateLegacyMCPServerConfig(config)).toBe(false);
+      });
+    });
+  });
+
+  describe('validateMCPConfig function', () => {
+    it('should accept valid local server config', () => {
+      const config = {
+        type: 'local' as const,
+        command: 'git-mcp-server',
+        args: ['--verbose'],
+      };
+
+      const result = validateMCPConfig(config);
+      expect(result).toEqual(config);
+      expect((result as MCPLocalServerConfig).type).toBe('local');
+    });
+
+    it('should accept valid remote server config', () => {
+      const config = {
+        type: 'remote' as const,
+        url: 'https://api.github.com/mcp',
+        oauth: {
+          clientId: 'client-123',
+          scope: 'repo',
+        },
+      };
+
+      const result = validateMCPConfig(config);
+      expect(result).toEqual(config);
+      expect((result as MCPRemoteServerConfig).type).toBe('remote');
+    });
+
+    it('should accept valid legacy config', () => {
+      const config = {
+        name: 'legacy-server',
+        command: 'legacy-mcp-server',
+        env: { DEBUG: '1' },
+      };
+
+      const result = validateMCPConfig(config);
+      expect(result).toEqual(config);
+      expect((result as LegacyMCPServerConfig).name).toBe('legacy-server');
+    });
+
+    it('should reject invalid configs', () => {
+      const invalidConfigs = [
+        null,
+        'string',
+        123,
+        {},
+        { type: 'invalid' },
+        { type: 'local' }, // missing command
+        { type: 'remote' }, // missing url
+      ];
+
+      invalidConfigs.forEach(config => {
+        expect(() => validateMCPConfig(config)).toThrow();
+      });
     });
   });
 
@@ -87,6 +210,77 @@ describe('Config Schema Validation', () => {
     });
   });
 
+  describe('OpenCode compatibility', () => {
+    it('should support OpenCode-style local server config', () => {
+      const openCodeLocalConfig = {
+        type: 'local' as const,
+        command: 'git-mcp-server',
+        args: ['--verbose'],
+        environment: { GIT_MCP_DEBUG: '1' }, // OpenCode uses 'environment' not 'env'
+        timeout: 15000,
+        enabled: true,
+      };
+
+      const result = validateMCPConfig(openCodeLocalConfig);
+      expect(result).toEqual(openCodeLocalConfig);
+      expect((result as MCPLocalServerConfig).environment).toEqual({
+        GIT_MCP_DEBUG: '1',
+      });
+    });
+
+    it('should support OpenCode-style remote server config', () => {
+      const openCodeRemoteConfig = {
+        type: 'remote' as const,
+        url: 'https://api.github.com/mcp',
+        oauth: {
+          clientId: 'your-client-id',
+          scope: 'repo:read',
+        },
+        timeout: 30000,
+        enabled: true,
+      };
+
+      const result = validateMCPConfig(openCodeRemoteConfig);
+      expect(result).toEqual(openCodeRemoteConfig);
+      expect((result as MCPRemoteServerConfig).oauth).toEqual({
+        clientId: 'your-client-id',
+        scope: 'repo:read',
+      });
+    });
+  });
+
+  describe('TypeScript discriminated union support', () => {
+    it('should provide type narrowing for local configs', () => {
+      const config: MCPServerConfig = {
+        type: 'local' as const,
+        command: 'test-server',
+      };
+
+      if (config.type === 'local') {
+        // TypeScript should narrow the type here
+        expect(config.command).toBe('test-server');
+        // This should not cause a TypeScript error
+        const command: string = config.command;
+        expect(typeof command).toBe('string');
+      }
+    });
+
+    it('should provide type narrowing for remote configs', () => {
+      const config: MCPServerConfig = {
+        type: 'remote' as const,
+        url: 'https://example.com',
+      };
+
+      if (config.type === 'remote') {
+        // TypeScript should narrow the type here
+        expect(config.url).toBe('https://example.com');
+        // This should not cause a TypeScript error
+        const url: string = config.url;
+        expect(typeof url).toBe('string');
+      }
+    });
+  });
+
   describe('Config Section Validation Helper', () => {
     it('should return valid data when validation passes', () => {
       const validData = {
@@ -94,7 +288,11 @@ describe('Config Schema Validation', () => {
         command: 'node server.js',
       };
 
-      const result = validateConfigSection(validData, validateMCPServerConfig, 'MCP Server');
+      const result = validateConfigSection(
+        validData,
+        validateLegacyMCPServerConfig,
+        'Legacy MCP Server'
+      );
       expect(result).toEqual(validData);
     });
 
@@ -105,8 +303,8 @@ describe('Config Schema Validation', () => {
       };
 
       expect(() => {
-        validateConfigSection(invalidData, validateMCPServerConfig, 'MCP Server');
-      }).toThrow('Invalid MCP Server configuration');
+        validateConfigSection(invalidData, validateLegacyMCPServerConfig, 'Legacy MCP Server');
+      }).toThrow('Invalid Legacy MCP Server configuration');
     });
   });
 });
