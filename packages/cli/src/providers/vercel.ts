@@ -114,4 +114,17 @@ export class VercelAssistantChat implements IAssistantChat {
   getType(): string {
     return `vercel-${this.providerName}`;
   }
+
+  /**
+   * List available models for this Vercel provider
+   * @returns Promise<string[]> Array of available model names
+   */
+  async listModels(): Promise<string[]> {
+    try {
+      return await VercelProviderFactory.listModels(this.providerName);
+    } catch {
+      // Return empty array on error - provider discovery will handle gracefully
+      return [];
+    }
+  }
 }

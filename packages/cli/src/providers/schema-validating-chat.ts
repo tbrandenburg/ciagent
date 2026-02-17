@@ -212,4 +212,8 @@ export class SchemaValidatingChat implements IAssistantChat {
   getType(): string {
     return this.provider.getType();
   }
+
+  async listModels(): Promise<string[]> {
+    return await this.provider.listModels();
+  }
 }
