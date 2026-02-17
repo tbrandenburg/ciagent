@@ -147,4 +147,8 @@ export class ReliableAssistantChat implements IAssistantChat {
   getType(): string {
     return `reliable-${this.provider.getType()}`;
   }
+
+  async listModels(): Promise<string[]> {
+    return await this.provider.listModels();
+  }
 }

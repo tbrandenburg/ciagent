@@ -31,6 +31,7 @@ describe('runCommand', () => {
     const mockAssistantChat = {
       sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
       getType: () => 'codex',
+      listModels: vi.fn().mockResolvedValue(['codex-v1']),
     };
 
     const createAssistantChatSpy = vi
@@ -53,6 +54,7 @@ describe('runCommand', () => {
     const mockAssistantChat = {
       sendQuery: () => makeGenerator([{ type: 'error', content: 'turn failed' }]),
       getType: () => 'codex',
+      listModels: vi.fn().mockResolvedValue(['codex-v1']),
     };
 
     const createAssistantChatSpy = vi
@@ -75,6 +77,7 @@ describe('runCommand', () => {
     const mockAssistantChat = {
       sendQuery: () => makeGenerator([{ type: 'assistant', content: '{"ok":true}' }]),
       getType: () => 'codex',
+      listModels: vi.fn().mockResolvedValue(['codex-v1']),
     };
 
     const createAssistantChatSpy = vi
