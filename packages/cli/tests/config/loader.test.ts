@@ -133,4 +133,103 @@ describe('Configuration Loader', () => {
     // NOTE: Cannot test malformed JSON handling because it calls process.exit()
     // This is correct CLI behavior but not testable in unit tests
   });
+
+  describe('Enhanced Configuration Fields', () => {
+    it('should load enhanced config with mcp.servers, skills, and tools fields', () => {
+      // Set up user config with new enhanced fields
+      mkdirSync(testUserConfigDir, { recursive: true });
+      writeFileSync(
+        testUserConfigFile,
+        JSON.stringify({
+          provider: 'codex',
+          model: 'gpt-4',
+          mcp: {
+            servers: [
+              {
+                name: 'filesystem',
+                command: 'node',
+                args: ['./mcp-server-filesystem.js'],
+                env: { NODE_ENV: 'production' },
+              },
+            ],
+          },
+          skills: {
+            sources: [
+              {
+                name: 'code-review',
+                path: '/skills/code-review',
+                enabled: true,
+              },
+              {
+                name: 'documentation',
+                path: '/skills/docs',
+                enabled: false,
+              },
+            ],
+          },
+          tools: {
+            enabled: true,
+            maxTools: 10,
+            timeout: 30000,
+          },
+        })
+      );
+
+      const config = loadConfig();
+
+      // Verify basic config still works
+      expect(config.provider).toBe('codex');
+      expect(config.model).toBe('gpt-4');
+
+      // Verify enhanced config fields are loaded with proper types
+      expect(config.mcp).toBeDefined();
+      expect(config.mcp?.servers).toBeDefined();
+      expect(config.mcp?.servers.length).toBe(1);
+      expect(config.mcp?.servers[0].name).toBe('filesystem');
+      expect(config.mcp?.servers[0].command).toBe('node');
+      expect(config.mcp?.servers[0].args).toEqual(['./mcp-server-filesystem.js']);
+      expect(config.mcp?.servers[0].env).toEqual({ NODE_ENV: 'production' });
+
+      expect(config.skills).toBeDefined();
+      expect(config.skills?.sources).toBeDefined();
+      expect(config.skills?.sources.length).toBe(2);
+      expect(config.skills?.sources[0].name).toBe('code-review');
+      expect(config.skills?.sources[0].path).toBe('/skills/code-review');
+      expect(config.skills?.sources[0].enabled).toBe(true);
+
+      expect(config.tools).toBeDefined();
+      expect(config.tools?.enabled).toBe(true);
+      expect(config.tools?.maxTools).toBe(10);
+      expect(config.tools?.timeout).toBe(30000);
+    });
+
+    it('should handle partial enhanced config gracefully', () => {
+      // Set up user config with only some enhanced fields
+      mkdirSync(testUserConfigDir, { recursive: true });
+      writeFileSync(
+        testUserConfigFile,
+        JSON.stringify({
+          provider: 'codex',
+          skills: {
+            sources: [
+              {
+                name: 'linting',
+                path: '/skills/linting',
+              },
+            ],
+          },
+          // Missing mcp and tools - should be undefined
+        })
+      );
+
+      const config = loadConfig();
+
+      expect(config.provider).toBe('codex');
+      expect(config.skills?.sources).toBeDefined();
+      expect(config.skills?.sources.length).toBe(1);
+      expect(config.skills?.sources[0].name).toBe('linting');
+      expect(config.mcp).toBeUndefined();
+      expect(config.tools).toBeUndefined();
+    });
+  });
 });

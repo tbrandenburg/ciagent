@@ -219,11 +219,16 @@ We purster a test coverage of >=40% in early stages of the project.
 | 3b | Schema enforcement & validation | JSON schema response format, retry logic with schema validation | complete | - | 3a | .claude/PRPs/plans/schema-enforcement-validation.plan.md |
 | 3c | Template support & output validation | Basic variable substitution, output format validation | complete | - | 3b | .claude/PRPs/plans/template-support-output-validation.plan.md |
 | 4 | Azure OpenAI integration | Initial @ai-sdk/azure integration (Vercel AI SDK) | complete | - | 3c | .claude/PRPs/plans/azure-openai-integration.plan.md |
-| 5 | Context handling | File/folder referencing, GitHub API URL referencing | in-progress | - | 3c, 4 | .claude/PRPs/plans/context-handling.plan.md |
-| 6 | Model listing | `cia models` command across all providers | pending | with 7 | 3c, 4 | - |
-| 7 | MCP/Skills/Tools | Optional integrations for extended capabilities | pending | - | 5, 6, 7 | - |
-| 8 | Enterprise network support | HTTP proxy and custom CA bundle support | pending | with 6 | 3c, 4 | - |
-| 9 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 8 | 3c, 4 | - |
+| 5 | Context handling | File/folder referencing, GitHub API URL referencing | complete | - | 3c, 4 | .claude/PRPs/plans/context-handling.plan.md |
+| 6 | Model listing | `cia models` command across all providers | complete | with 7.1-7.6, 8 | 3c, 4 | .claude/PRPs/plans/model-listing.plan.md |
+| 7.1 | Core infrastructure enhancement | Enhanced MessageChunk types, tool registry, session context, config migration | complete | with 6, 8 | 5 | .claude/PRPs/plans/core-infrastructure-enhancement.plan.md |
+| 7.2 | MCP integration framework | Complete MCP manager with OAuth authentication and robust error handling | pending | with 7.3 | 7.1 | - |
+| 7.3 | Skills system integration | Multi-source skills discovery, SKILL.md parsing, progressive disclosure | pending | with 7.2 | 7.1 | - |
+| 7.4 | Enhanced orchestration | Integrate MCP and Skills into existing orchestrator, preserve IAssistantClient | pending | - | 7.2, 7.3 | - |
+| 7.5 | CIA CLI enhancement | MCP and Skills management commands, enhanced status reporting | pending | with 8 | 7.4 | - |
+| 7.6 | CIA testing & integration | Comprehensive testing, performance validation, compatibility assurance | pending | - | 7.5 | - |
+| 8 | Enterprise network support | HTTP proxy and custom CA bundle support | pending | with 6, 7.1, 7.5 | 3c, 4 | - |
+| 9 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 8 | 7.6 | - |
 | 10 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | pending | - | 9 | - |
 | 11 | Packaging & docs | Bun binary, Docker image, README with examples | pending | - | 10 | - |
 | 12 | Legacy cleanup | Remove deprecated environment variable support | pending | - | 11 | - |
@@ -383,15 +388,11 @@ We purster a test coverage of >=40% in early stages of the project.
   - Output format: `provider:model` (e.g., `codex:codex-v1`, `azure:gpt-4o`)
 - **Success signal**: `cia models` prints table with at least 2 models
 
-**Phase 7: MCP/Skills/Tools**
-- **Goal**: Extend capabilities without hardcoding features
-- **Scope**:
-  - codex SDK and claude SDK and their IAssistantChat compliant implementation should already support MCPs and skills -> they should provide the template for it
-  - MCP: Load MCP servers from `~/.cia/mcp.json` or `.cia/mcp.json`
-  - Skills: Load skill definitions from `~/.cia/skills/` or `.cia/skills/` (reusable prompt patterns)
-  - Tools: Function calling support via provider SDKs
-  - All optional, lazy-loaded
-- **Success signal**: `cia run --provider codex --model gpt-5.2 "Which skills do you have"` returns predefined skills + `cia run --provider codex --model gpt-5.2 "What is the weather in New York"` returns weather report based on bash/curl calls
+**Phases 7.1-7.6: CIA Agent Integration**
+- **Goal**: Transform existing system into CIA Agent with complete MCP and Skills support while preserving IAssistantClient compatibility
+- **Architecture**: Based on technical design in `dev/cia-agent-technical-design.md` - combines remote-coding-agent simplicity with OpenCode sophistication
+- **Detailed Implementation**: See comprehensive sub-phase breakdown in `.claude/PRPs/plans/cia-agent-integration.plan.md`
+- **Success signal**: `cia run --provider codex --model gpt-5.2 --enable-mcp --enable-skills "What skills and tools do you have?"` returns comprehensive capabilities; system maintains <150ms overhead with MCP/skills enabled
 
 **Phase 8: Enterprise Network Support**
 - **Goal**: Enable CIA to work in enterprise environments with corporate proxies and custom certificates
@@ -461,7 +462,19 @@ We purster a test coverage of >=40% in early stages of the project.
 
 **Phases 3.5 & 4 (Interface Evolution + Azure)** can run in parallel after Phase 3 is complete. Phase 3.5 evolves the provider interface while Phase 4 implements Azure OpenAI integration. Use separate Git branches or worktrees to avoid conflicts. Integration happens in Phase 3a when both interface updates and Azure provider are merged.
 
-**Phases 6, 7, & 8 (Models + MCP + Enterprise Network)** can run in parallel as they consume provider interfaces without modifying them. All depend on Phases 3c & 4 being complete.
+**Phases 6, 7.1, & 8 (Models + Core Infrastructure + Enterprise Network)** can run in parallel as they consume provider interfaces without modifying them. All depend on Phases 3c & 4 being complete.
+
+**Phases 7.2 & 7.3 (MCP + Skills)** can run in parallel after Phase 7.1 (Core Infrastructure Enhancement) is complete. Both require the enhanced MessageChunk types and tool registry from 7.1, but MCP and Skills implementations are independent of each other.
+
+**Phases 7.5 & 8 (CIA CLI + Enterprise Network)** can run in parallel as they both extend CLI functionality without core system changes. Phase 7.5 requires 7.4 for MCP/Skills functionality, while Phase 8 can start earlier.
+
+**Critical Path**: 1 → 2 → 3 → 3.5 → 3a → 3b → 3c → 4 → 5 → 7.1 → 7.2/7.3 → 7.4 → 7.6 → 9 → 10 → 11 → 12
+
+**CIA Agent Integration Dependencies**:
+- 7.1 (Core Infrastructure) blocks all other 7.x phases
+- 7.2 (MCP) and 7.3 (Skills) can run in parallel after 7.1  
+- 7.4 (Enhanced Orchestration) requires both 7.2 and 7.3
+- 7.5 (CLI Enhancement) and 7.6 (Testing) are sequential after 7.4
 
 ---
 
