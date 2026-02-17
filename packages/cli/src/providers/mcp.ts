@@ -7,6 +7,7 @@ import { MCPManager, type MCPTool, type MCPServerInfo } from './mcp/manager.js';
 import { convertMCPToolToDefinition } from './mcp/converter.js';
 import { toolRegistry } from '../core/tool-registry.js';
 import { loadStructuredConfig, type CIAConfig } from '../shared/config/loader.js';
+import { type MCPServerConfig } from '../shared/config/schema.js';
 
 /**
  * MCP Provider class that manages MCP servers as a tool provider
@@ -32,11 +33,22 @@ export class MCPProvider {
       console.log('[MCP Provider] Initializing...');
 
       // Load MCP configuration safely
-      let mcpConfig = {};
+      let mcpConfig: Record<string, MCPServerConfig> = {};
       if (config) {
         try {
           const structuredConfig = loadStructuredConfig(config);
-          mcpConfig = structuredConfig?.mcp || {};
+          const mcpStructured = structuredConfig?.mcp;
+
+          // Convert from structured format { servers: MCPServerConfig[] } to Record<string, MCPServerConfig>
+          if (mcpStructured?.servers && Array.isArray(mcpStructured.servers)) {
+            mcpConfig = {};
+            for (const server of mcpStructured.servers) {
+              // The structured config adds a name field, but we use it as the key instead
+              const serverWithName = server as MCPServerConfig & { name: string };
+              const { name, ...serverConfig } = serverWithName;
+              mcpConfig[name] = serverConfig as MCPServerConfig;
+            }
+          }
         } catch (error) {
           console.log(
             '[MCP Provider] Failed to load structured config, continuing with empty MCP config:',

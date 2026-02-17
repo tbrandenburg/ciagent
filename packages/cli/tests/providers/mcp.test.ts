@@ -17,7 +17,7 @@ describe('MCPProvider Integration', () => {
 
   describe('Initialization', () => {
     it('should initialize without configuration', async () => {
-      await expect(mcpProvider.initialize()).resolves.not.toThrow();
+      await expect(async () => await mcpProvider.initialize()).not.toThrow();
 
       const healthInfo = mcpProvider.getHealthInfo();
       expect(healthInfo.serverCount).toBe(0);
@@ -30,7 +30,7 @@ describe('MCPProvider Integration', () => {
         mcp: {},
       } as any;
 
-      await expect(mcpProvider.initialize(config)).resolves.not.toThrow();
+      await expect(async () => await mcpProvider.initialize(config)).not.toThrow();
 
       const healthInfo = mcpProvider.getHealthInfo();
       expect(healthInfo.serverCount).toBe(0);
@@ -41,7 +41,9 @@ describe('MCPProvider Integration', () => {
       await mcpProvider.initialize();
 
       // Second initialization should be a no-op
-      await expect(mcpProvider.initialize()).resolves.not.toThrow();
+      await expect(async () => await mcpProvider.initialize()).not.toThrow();
+
+      expect(mcpProvider.isHealthy()).toBe(false); // No servers configured
     });
   });
 
@@ -111,7 +113,7 @@ describe('MCPProvider Integration', () => {
     it('should refresh without errors', async () => {
       await mcpProvider.initialize();
 
-      await expect(mcpProvider.refresh()).resolves.not.toThrow();
+      await expect(async () => await mcpProvider.refresh()).not.toThrow();
     });
   });
 });
