@@ -8,6 +8,7 @@ export const enum ExitCode {
   AUTH_CONFIG = 3,
   LLM_EXECUTION = 4,
   TIMEOUT = 5,
+  GENERAL_ERROR = 6,
 }
 
 /**
@@ -20,4 +21,5 @@ export const EXIT_CODE_DESCRIPTIONS: Record<ExitCode, string> = {
   [ExitCode.AUTH_CONFIG]: 'Authentication or configuration error',
   [ExitCode.LLM_EXECUTION]: 'LLM execution failed',
   [ExitCode.TIMEOUT]: 'Operation timed out',
+  [ExitCode.GENERAL_ERROR]: 'General error occurred',
 };

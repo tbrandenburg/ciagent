@@ -46,7 +46,7 @@ export const CommonErrors = {
     createError(
       ExitCode.INPUT_VALIDATION,
       'No command specified',
-      'Available commands: run, models',
+      'Available commands: run, models, mcp',
       'Try: cia run "your prompt here"'
     ),
 
@@ -54,7 +54,7 @@ export const CommonErrors = {
     createError(
       ExitCode.INPUT_VALIDATION,
       `Unknown command: ${command}`,
-      'Available commands: run, models',
+      'Available commands: run, models, mcp',
       'Use --help to see all available options'
     ),
 
@@ -169,6 +169,14 @@ export const CommonErrors = {
       `Invalid context URL: ${url}`,
       reason || 'URL format is not supported or contains security issues',
       'Use valid GitHub URLs (https://github.com/org/repo/pull/123 or issues/123)'
+    ),
+
+  operationFailed: (operation: string, reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `Operation failed: ${operation}`,
+      reason,
+      'Check your configuration and try again'
     ),
 };
 

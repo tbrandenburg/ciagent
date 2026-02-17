@@ -1,7 +1,37 @@
 import Ajv, { JSONSchemaType } from 'ajv';
 
-// Type definitions for enhanced configuration
-export interface MCPServerConfig {
+// Enhanced MCP configuration to match OpenCode standards with discriminated union types
+export interface MCPServerConfigBase {
+  type: 'local' | 'remote';
+  timeout?: number;
+  enabled?: boolean;
+}
+
+export interface MCPLocalServerConfig extends MCPServerConfigBase {
+  type: 'local';
+  command: string;
+  args?: string[];
+  environment?: Record<string, string>; // Match OpenCode naming: 'environment' not 'env'
+}
+
+export interface MCPRemoteServerConfig extends MCPServerConfigBase {
+  type: 'remote';
+  url: string;
+  headers?: Record<string, string>;
+  oauth?:
+    | {
+        clientId: string;
+        clientSecret?: string;
+        scope?: string;
+      }
+    | false;
+}
+
+// Discriminated union type for MCP server config
+export type MCPServerConfig = MCPLocalServerConfig | MCPRemoteServerConfig;
+
+// Legacy interface for backward compatibility during transition
+export interface LegacyMCPServerConfig {
   name: string;
   command: string;
   args?: string[];
@@ -22,8 +52,8 @@ export interface ToolRegistryConfig {
   timeout?: number;
 }
 
-// AJV schemas with compile-time type safety
-export const mcpServerConfigSchema: JSONSchemaType<MCPServerConfig> = {
+// Schema definitions
+export const legacyMcpServerConfigSchema: JSONSchemaType<LegacyMCPServerConfig> = {
   type: 'object',
   properties: {
     name: { type: 'string' },
@@ -79,9 +109,60 @@ export const toolRegistryConfigSchema: JSONSchemaType<ToolRegistryConfig> = {
 // Compiled validators for performance
 const ajv = new Ajv();
 
-export const validateMCPServerConfig = ajv.compile(mcpServerConfigSchema);
+export const validateLegacyMCPServerConfig = ajv.compile(legacyMcpServerConfigSchema);
 export const validateSkillsConfig = ajv.compile(skillsConfigSchema);
 export const validateToolRegistryConfig = ajv.compile(toolRegistryConfigSchema);
+
+// Simple validation functions for the new MCP config format
+export function validateMCPLocalServerConfig(data: any): data is MCPLocalServerConfig {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    data.type === 'local' &&
+    typeof data.command === 'string'
+  );
+}
+
+export function validateMCPRemoteServerConfig(data: any): data is MCPRemoteServerConfig {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    data.type === 'remote' &&
+    typeof data.url === 'string'
+  );
+}
+
+// Helper function to validate MCP config (supports both new and legacy formats)
+export function validateMCPConfig(data: unknown): MCPServerConfig | LegacyMCPServerConfig {
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Invalid MCP configuration: must be an object');
+  }
+
+  const obj = data as any;
+
+  // Try new discriminated union format first
+  if ('type' in obj) {
+    if (obj.type === 'local' && validateMCPLocalServerConfig(obj)) {
+      return obj as MCPLocalServerConfig;
+    }
+    if (obj.type === 'remote' && validateMCPRemoteServerConfig(obj)) {
+      return obj as MCPRemoteServerConfig;
+    }
+    throw new Error(
+      `Invalid MCP configuration: unsupported type "${obj.type}" or missing required fields`
+    );
+  }
+
+  // Fall back to legacy format
+  if (validateLegacyMCPServerConfig(obj)) {
+    return obj as LegacyMCPServerConfig;
+  }
+
+  const errors = validateLegacyMCPServerConfig.errors
+    ?.map((err: any) => `${err.instancePath}: ${err.message}`)
+    .join(', ');
+  throw new Error(`Invalid MCP configuration: ${errors || 'Unknown validation error'}`);
+}
 
 // Helper function to validate config sections with proper error handling
 export function validateConfigSection<T>(
