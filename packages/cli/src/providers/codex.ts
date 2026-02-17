@@ -157,4 +157,19 @@ export class CodexAssistantChat implements IAssistantChat {
   getType(): string {
     return 'codex';
   }
+
+  async listModels(): Promise<string[]> {
+    // Codex SDK may not have model listing API - use fallback to known models
+    try {
+      // Try to call Codex SDK model listing if available (future SDK versions)
+      if (this.codex && typeof (this.codex as any).listModels === 'function') {
+        return await (this.codex as any).listModels();
+      }
+      // Fallback to known Codex models
+      return ['codex-v1'];
+    } catch {
+      // If any error occurs, return fallback models
+      return ['codex-v1'];
+    }
+  }
 }

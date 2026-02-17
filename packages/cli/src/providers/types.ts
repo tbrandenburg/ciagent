@@ -14,4 +14,5 @@ export interface IAssistantChat {
   sendQuery(prompt: string, cwd: string, resumeSessionId?: string): AsyncGenerator<ChatChunk>;
   sendQuery(messages: Message[], cwd: string, resumeSessionId?: string): AsyncGenerator<ChatChunk>;
   getType(): string;
+  listModels(): Promise<string[]>;
 }

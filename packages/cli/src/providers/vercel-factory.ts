@@ -103,4 +103,58 @@ export class VercelProviderFactory {
   static getSupportedProviders(): string[] {
     return ['azure']; // Will expand to ['azure', 'openai', 'google', 'anthropic'] as dependencies are added
   }
+
+  /**
+   * List available models for a specific Vercel provider type
+   * @param type - Provider type ('azure', 'openai', 'google', 'anthropic')
+   * @param config - Optional provider configuration
+   * @returns Promise<string[]> Array of available model names
+   */
+  static async listModels(type: string, config?: VercelProviderConfig): Promise<string[]> {
+    // TODO: Use config for provider-specific authentication in future iterations
+    void config; // Acknowledge config parameter for interface compatibility
+
+    switch (type) {
+      case 'azure': {
+        try {
+          // Azure OpenAI uses deployments, which are custom per tenant
+          // For now, return common Azure OpenAI model deployments
+          return ['gpt-4o', 'gpt-4o-mini', 'gpt-35-turbo'];
+        } catch {
+          return ['gpt-4o'];
+        }
+      }
+
+      // Future providers (commented out until dependencies are added):
+      // case 'openai': {
+      //   try {
+      //     const openaiModule = await import('@ai-sdk/openai');
+      //     // OpenAI model listing would go here
+      //     return ['gpt-4o', 'gpt-4o-mini', 'gpt-35-turbo'];
+      //   } catch {
+      //     return ['gpt-4o'];
+      //   }
+      // }
+
+      // case 'google': {
+      //   try {
+      //     return ['gemini-1.5-pro', 'gemini-1.5-flash'];
+      //   } catch {
+      //     return ['gemini-1.5-pro'];
+      //   }
+      // }
+
+      // case 'anthropic': {
+      //   try {
+      //     return ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'];
+      //   } catch {
+      //     return ['claude-3-5-sonnet-20241022'];
+      //   }
+      // }
+
+      default:
+        // Return empty array for unsupported providers
+        return [];
+    }
+  }
 }

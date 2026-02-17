@@ -128,4 +128,27 @@ export class ClaudeAssistantChat implements IAssistantChat {
   getType(): string {
     return 'claude';
   }
+
+  async listModels(): Promise<string[]> {
+    try {
+      // Use Anthropic SDK for model listing
+      const Anthropic = (await import('@anthropic-ai/sdk')).default;
+
+      // Get API key from environment (matching existing auth pattern)
+      const apiKey = process.env.CLAUDE_API_KEY ?? process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        // Return empty array if no API key - provider discovery will handle gracefully
+        return [];
+      }
+
+      const client = new Anthropic({ apiKey });
+      const models = await client.models.list();
+
+      // Extract model IDs from the response
+      return models.data.map(model => model.id);
+    } catch {
+      // If any error occurs, return fallback models
+      return ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'];
+    }
+  }
 }
