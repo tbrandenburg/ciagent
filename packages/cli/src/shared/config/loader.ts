@@ -1,6 +1,7 @@
 import { resolve } from 'path';
 import { readFileSync, existsSync } from 'fs';
 import { ExitCode } from '../../utils/exit-codes.js';
+import { MCPServerConfig, SkillsConfig, ToolRegistryConfig } from './schema.js';
 
 export interface CIAConfig {
   provider?: string;
@@ -44,13 +45,10 @@ export interface CIAConfig {
     };
   };
   mcp?: {
-    servers: Array<{
-      name: string;
-      command: string;
-      args?: string[];
-      env?: Record<string, string>;
-    }>;
+    servers: MCPServerConfig[];
   };
+  skills?: SkillsConfig;
+  tools?: ToolRegistryConfig;
 }
 
 export function loadConfig(cliArgs: Partial<CIAConfig> = {}): CIAConfig {
@@ -198,14 +196,21 @@ function loadConfigFile(filePath: string): Partial<CIAConfig> | null {
 }
 
 /**
- * Loads structured configuration sections (providers, mcp) with environment variable substitution.
+ * Loads structured configuration sections (providers, mcp, skills, tools) with environment variable substitution.
  * Performs ${ENV_VAR} substitution in string values.
  */
 export function loadStructuredConfig(config: CIAConfig): {
   providers?: CIAConfig['providers'];
   mcp?: CIAConfig['mcp'];
+  skills?: CIAConfig['skills'];
+  tools?: CIAConfig['tools'];
 } {
-  const result: { providers?: CIAConfig['providers']; mcp?: CIAConfig['mcp'] } = {};
+  const result: {
+    providers?: CIAConfig['providers'];
+    mcp?: CIAConfig['mcp'];
+    skills?: CIAConfig['skills'];
+    tools?: CIAConfig['tools'];
+  } = {};
 
   // Process providers configuration
   if (config.providers) {
@@ -220,6 +225,18 @@ export function loadStructuredConfig(config: CIAConfig): {
     result.mcp = {
       servers: config.mcp.servers.map(server => substituteEnvironmentVariables(server)),
     };
+  }
+
+  // Process Skills configuration
+  if (config.skills) {
+    result.skills = {
+      sources: config.skills.sources.map(source => substituteEnvironmentVariables(source)),
+    };
+  }
+
+  // Process Tools configuration
+  if (config.tools) {
+    result.tools = substituteEnvironmentVariables(config.tools);
   }
 
   return result;

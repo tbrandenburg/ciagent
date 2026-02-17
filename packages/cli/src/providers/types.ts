@@ -3,6 +3,10 @@ export interface ChatChunk {
   content?: string;
   sessionId?: string;
   toolName?: string;
+  // Enhanced fields for tool calling and metadata
+  toolCallId?: string;
+  metadata?: Record<string, any>;
+  contextId?: string;
 }
 
 export interface Message {
