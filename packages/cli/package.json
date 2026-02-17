@@ -18,9 +18,11 @@
     "@ai-sdk/azure": "^3.0.30",
     "@anthropic-ai/claude-agent-sdk": "^0.2.7",
     "@openai/codex-sdk": "^0.87.0",
+    "@types/node": "^25.2.3",
     "ai": "^6.0.86",
     "ajv": "^8.17.1",
-    "p-retry": "7.1.1"
+    "p-retry": "7.1.1",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/bun": "latest",

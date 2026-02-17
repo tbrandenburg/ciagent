@@ -1,5 +1,8 @@
 import { existsSync, readFileSync } from 'fs';
 import { CIAConfig } from '../config/loader.js';
+import { resolveContextInput } from '../../utils/context-processors.js';
+import { validateGitHubUrl } from '../../utils/github-api.js';
+import { isValidPath, pathExists } from '../../utils/file-utils.js';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -176,4 +179,249 @@ export function validateExecutionRequirements(config: CIAConfig): ValidationResu
     isValid: errors.length === 0,
     errors,
   };
+}
+
+/**
+ * Validate array of context sources
+ * @param sources Array of context source parameters
+ * @returns Validation result with any errors found
+ */
+export function validateContextSources(sources: string[]): ValidationResult {
+  const errors: string[] = [];
+
+  if (!Array.isArray(sources)) {
+    return { isValid: false, errors: ['Context sources must be an array'] };
+  }
+
+  for (let i = 0; i < sources.length; i++) {
+    const source = sources[i];
+    const sourceErrors = validateSingleContextSource(source, i);
+    errors.push(...sourceErrors);
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Validate a single context source
+ * @param source Context source parameter
+ * @param index Index in the array (for error messages)
+ * @returns Array of validation errors
+ */
+function validateSingleContextSource(source: string, index?: number): string[] {
+  const errors: string[] = [];
+  const prefix = index !== undefined ? `Context source #${index + 1}` : 'Context source';
+
+  if (!source || typeof source !== 'string') {
+    errors.push(`${prefix}: must be a non-empty string`);
+    return errors;
+  }
+
+  const trimmed = source.trim();
+  if (!trimmed) {
+    errors.push(`${prefix}: cannot be empty or whitespace-only`);
+    return errors;
+  }
+
+  // Resolve the context input to detect type
+  try {
+    const resolved = resolveContextInput(trimmed);
+
+    switch (resolved.type) {
+      case 'url':
+        const urlErrors = validateContextUrl(trimmed);
+        if (!urlErrors.isValid) {
+          errors.push(...urlErrors.errors.map(err => `${prefix}: ${err}`));
+        }
+        break;
+
+      case 'file':
+        const fileErrors = validateContextFilePath(trimmed);
+        if (!fileErrors.isValid) {
+          errors.push(...fileErrors.errors.map(err => `${prefix}: ${err}`));
+        }
+        break;
+
+      case 'folder':
+        const folderErrors = validateContextFolderPath(trimmed);
+        if (!folderErrors.isValid) {
+          errors.push(...folderErrors.errors.map(err => `${prefix}: ${err}`));
+        }
+        break;
+
+      case 'direct':
+        // Direct content is always valid (JSON validation happens during processing)
+        break;
+
+      default:
+        errors.push(`${prefix}: unrecognized context type for "${trimmed}"`);
+    }
+  } catch (error) {
+    errors.push(
+      `${prefix}: validation error - ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+
+  return errors;
+}
+
+/**
+ * Validate file path for context usage
+ * @param path File path to validate
+ * @returns Validation result
+ */
+export function validateContextFilePath(path: string): ValidationResult {
+  const errors: string[] = [];
+
+  if (!path || typeof path !== 'string') {
+    return { isValid: false, errors: ['File path must be a non-empty string'] };
+  }
+
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return { isValid: false, errors: ['File path cannot be empty'] };
+  }
+
+  // Security validation - prevent path traversal
+  if (!isValidPath(trimmed)) {
+    errors.push(
+      'File path contains potentially dangerous patterns (path traversal, system directories)'
+    );
+  }
+
+  // Check if file exists and is accessible
+  if (!pathExists(trimmed)) {
+    errors.push(`File does not exist or is not accessible: ${trimmed}`);
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Validate folder path for context usage
+ * @param path Folder path to validate
+ * @returns Validation result
+ */
+export function validateContextFolderPath(path: string): ValidationResult {
+  const errors: string[] = [];
+
+  if (!path || typeof path !== 'string') {
+    return { isValid: false, errors: ['Folder path must be a non-empty string'] };
+  }
+
+  const trimmed = path.trim();
+  if (!trimmed) {
+    return { isValid: false, errors: ['Folder path cannot be empty'] };
+  }
+
+  // Security validation - prevent path traversal
+  if (!isValidPath(trimmed)) {
+    errors.push(
+      'Folder path contains potentially dangerous patterns (path traversal, system directories)'
+    );
+  }
+
+  // Check if folder exists and is accessible
+  if (!pathExists(trimmed)) {
+    errors.push(`Folder does not exist or is not accessible: ${trimmed}`);
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Validate GitHub URL with SSRF protection
+ * @param url URL to validate
+ * @returns Validation result
+ */
+export function validateContextUrl(url: string): ValidationResult {
+  const errors: string[] = [];
+
+  if (!url || typeof url !== 'string') {
+    return { isValid: false, errors: ['URL must be a non-empty string'] };
+  }
+
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return { isValid: false, errors: ['URL cannot be empty'] };
+  }
+
+  // Basic URL format validation
+  try {
+    new URL(trimmed);
+  } catch (error) {
+    errors.push(`Invalid URL format: ${trimmed}`);
+    return { isValid: false, errors };
+  }
+
+  // SSRF protection - only allow HTTPS URLs
+  if (!trimmed.startsWith('https://')) {
+    errors.push('Only HTTPS URLs are allowed for security reasons');
+  }
+
+  // For GitHub URLs, use specific validation
+  if (trimmed.includes('github.com')) {
+    if (!validateGitHubUrl(trimmed)) {
+      errors.push('Invalid GitHub URL format or contains security issues');
+    }
+  } else {
+    // For non-GitHub URLs, apply additional SSRF protections
+    const urlObj = new URL(trimmed);
+
+    // Block private/local addresses
+    const hostname = urlObj.hostname.toLowerCase();
+    const dangerousHosts = [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      '::1',
+      'metadata.goog', // Google Cloud metadata
+      '169.254.169.254', // AWS metadata
+    ];
+
+    if (dangerousHosts.some(host => hostname === host || hostname.endsWith(host))) {
+      errors.push('URL points to a private/local address which is not allowed');
+    }
+
+    // Block private IP ranges (basic check)
+    if (
+      hostname.match(/^192\.168\./i) ||
+      hostname.match(/^10\./i) ||
+      hostname.match(/^172\.(1[6-9]|2[0-9]|3[01])\./i)
+    ) {
+      errors.push('URL points to a private IP address which is not allowed');
+    }
+
+    // For now, only allow GitHub URLs for full implementation
+    errors.push('Only GitHub URLs are currently supported for context fetching');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Validate context sources in config
+ * @param config CIA configuration
+ * @returns Validation result
+ */
+export function validateConfigContextSources(config: CIAConfig): ValidationResult {
+  const contextSources = config.context || [];
+
+  if (contextSources.length === 0) {
+    return { isValid: true, errors: [] };
+  }
+
+  return validateContextSources(contextSources);
 }
