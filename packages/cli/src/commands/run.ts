@@ -5,6 +5,7 @@ import { createAssistantChat } from '../providers/index.js';
 import { CommonErrors, printError } from '../shared/errors/error-handling.js';
 import { ExitCode } from '../utils/exit-codes.js';
 import { processTemplate } from '../utils/template.js';
+import { processMultipleContextSources } from '../utils/context-processors.js';
 
 export async function runCommand(args: string[], config: CIAConfig): Promise<number> {
   const hasPrompt = args.length > 0 && args.join(' ').trim().length > 0;
@@ -21,7 +22,7 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     return error.code;
   }
 
-  const prompt = resolvePrompt(args, config);
+  const prompt = await resolvePrompt(args, config);
   if (!prompt) {
     const error = CommonErrors.invalidArgument('prompt', 'a non-empty prompt');
     printError(error);
@@ -242,7 +243,7 @@ function serializeOutput(
   return `${responseText}\n`;
 }
 
-function resolvePrompt(args: string[], config: CIAConfig): string {
+async function resolvePrompt(args: string[], config: CIAConfig): Promise<string> {
   let basePrompt = '';
 
   // First, get the base prompt from various sources
@@ -296,7 +297,7 @@ function resolvePrompt(args: string[], config: CIAConfig): string {
 
   // Integrate context sources if available
   if (config.context && config.context.length > 0) {
-    const contextContent = integrateContextSources(config.context);
+    const contextContent = await processMultipleContextSources(config.context);
     if (contextContent.trim()) {
       basePrompt = `${contextContent}\n\n${basePrompt}`;
     }
@@ -331,34 +332,3 @@ function processInputFile(inputFile: string): string {
 /**
  * Integrates context from multiple sources (files, URLs)
  */
-function integrateContextSources(contextSources: string[]): string {
-  const contextParts: string[] = [];
-
-  for (const source of contextSources) {
-    try {
-      let contextContent = '';
-
-      if (source.startsWith('http://') || source.startsWith('https://')) {
-        // URL context - for now just note it (actual fetching could be implemented later)
-        contextContent = `[Context from URL: ${source}]\n(URL content fetching not yet implemented)`;
-      } else {
-        // File context
-        contextContent = readFileSync(source, 'utf8').trim();
-        if (contextContent) {
-          contextContent = `[Context from ${source}]\n${contextContent}`;
-        }
-      }
-
-      if (contextContent.trim()) {
-        contextParts.push(contextContent);
-      }
-    } catch (error) {
-      // Log warning but continue processing other context sources
-      console.error(
-        `Warning: Could not read context source "${source}": ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  return contextParts.join('\n\n');
-}

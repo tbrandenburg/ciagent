@@ -16,7 +16,7 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "types": []
+    "types": ["node"]
   },
   "include": [
     "packages/*/src/**/*"
