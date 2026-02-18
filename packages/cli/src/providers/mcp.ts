@@ -8,6 +8,7 @@ import { convertMCPToolToDefinition } from './mcp/converter.js';
 import { toolRegistry } from '../core/tool-registry.js';
 import { loadStructuredConfig, type CIAConfig } from '../shared/config/loader.js';
 import { type MCPServerConfig } from '../shared/config/schema.js';
+import { type MessageChunk, createMCPAggregateStatusChunk } from './types.js';
 
 /**
  * MCP Provider class that manages MCP servers as a tool provider
@@ -160,6 +161,22 @@ export class MCPProvider {
       toolCount: this.getTools().length,
       servers,
     };
+  }
+
+  /**
+   * Get MCP aggregate status as a MessageChunk for orchestration
+   */
+  getStatusChunk(options?: { sessionId?: string; contextId?: string }): MessageChunk {
+    const healthInfo = this.getHealthInfo();
+    const tools = this.getTools();
+
+    return createMCPAggregateStatusChunk(
+      healthInfo.serverCount,
+      healthInfo.connectedServers,
+      healthInfo.toolCount,
+      tools.map(tool => tool.id),
+      options
+    );
   }
 
   /**

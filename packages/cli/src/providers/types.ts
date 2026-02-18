@@ -29,6 +29,32 @@ export type MessageChunk =
       status: 'connected' | 'failed' | 'needs_auth' | 'disabled' | 'connecting';
       sessionId?: string;
       contextId?: string;
+    }
+  // Aggregate status message chunks for orchestration
+  | {
+      type: 'mcp_aggregate_status';
+      serverCount: number;
+      connectedServers: number;
+      toolCount: number;
+      availableTools: string[];
+      sessionId?: string;
+      contextId?: string;
+    }
+  | {
+      type: 'skills_status';
+      skillsLoaded: number;
+      availableSkills: string[];
+      activeSkill?: string;
+      sessionId?: string;
+      contextId?: string;
+    }
+  | {
+      type: 'orchestration_status';
+      mcpAvailable: boolean;
+      skillsAvailable: boolean;
+      capabilities: string[];
+      sessionId?: string;
+      contextId?: string;
     };
 
 // Legacy ChatChunk interface for backward compatibility
@@ -41,7 +67,10 @@ export interface ChatChunk {
     | 'thinking'
     | 'error'
     | 'mcp_tool'
-    | 'mcp_status';
+    | 'mcp_status'
+    | 'mcp_aggregate_status'
+    | 'skills_status'
+    | 'orchestration_status';
   content?: string;
   sessionId?: string;
   toolName?: string;
@@ -53,6 +82,17 @@ export interface ChatChunk {
   serverName?: string;
   toolInput?: Record<string, unknown>;
   status?: 'connected' | 'failed' | 'needs_auth' | 'disabled' | 'connecting';
+  // Status aggregation fields
+  serverCount?: number;
+  connectedServers?: number;
+  toolCount?: number;
+  availableTools?: string[];
+  skillsLoaded?: number;
+  availableSkills?: string[];
+  activeSkill?: string;
+  mcpAvailable?: boolean;
+  skillsAvailable?: boolean;
+  capabilities?: string[];
 }
 
 export interface Message {
@@ -106,6 +146,71 @@ export function createMCPStatusChunk(
     type: 'mcp_status',
     serverName,
     status,
+    ...options,
+  };
+}
+
+/**
+ * Create an MCP aggregate status message chunk
+ */
+export function createMCPAggregateStatusChunk(
+  serverCount: number,
+  connectedServers: number,
+  toolCount: number,
+  availableTools: string[],
+  options?: {
+    sessionId?: string;
+    contextId?: string;
+  }
+): MessageChunk {
+  return {
+    type: 'mcp_aggregate_status',
+    serverCount,
+    connectedServers,
+    toolCount,
+    availableTools,
+    ...options,
+  };
+}
+
+/**
+ * Create a Skills status message chunk
+ */
+export function createSkillsStatusChunk(
+  skillsLoaded: number,
+  availableSkills: string[],
+  activeSkill?: string,
+  options?: {
+    sessionId?: string;
+    contextId?: string;
+  }
+): MessageChunk {
+  return {
+    type: 'skills_status',
+    skillsLoaded,
+    availableSkills,
+    activeSkill,
+    ...options,
+  };
+}
+
+/**
+ * Create an orchestration status message chunk
+ */
+export function createOrchestrationStatusChunk(
+  mcpAvailable: boolean,
+  skillsAvailable: boolean,
+  capabilities: string[],
+  options?: {
+    sessionId?: string;
+    contextId?: string;
+  }
+): MessageChunk {
+  return {
+    type: 'orchestration_status',
+    mcpAvailable,
+    skillsAvailable,
+    capabilities,
     ...options,
   };
 }
@@ -200,12 +305,60 @@ export function isMCPStatusChunk(
 }
 
 /**
+ * Type guard to check if a message chunk is an MCP aggregate status chunk
+ */
+export function isMCPAggregateStatusChunk(
+  chunk: MessageChunk
+): chunk is Extract<MessageChunk, { type: 'mcp_aggregate_status' }> {
+  return chunk.type === 'mcp_aggregate_status';
+}
+
+/**
+ * Type guard to check if a message chunk is a Skills status chunk
+ */
+export function isSkillsStatusChunk(
+  chunk: MessageChunk
+): chunk is Extract<MessageChunk, { type: 'skills_status' }> {
+  return chunk.type === 'skills_status';
+}
+
+/**
+ * Type guard to check if a message chunk is an orchestration status chunk
+ */
+export function isOrchestrationStatusChunk(
+  chunk: MessageChunk
+): chunk is Extract<MessageChunk, { type: 'orchestration_status' }> {
+  return chunk.type === 'orchestration_status';
+}
+
+/**
+ * Type guard to check if a message chunk is any status-related chunk
+ */
+export function isStatusChunk(
+  chunk: MessageChunk
+): chunk is Extract<
+  MessageChunk,
+  { type: 'mcp_status' | 'mcp_aggregate_status' | 'skills_status' | 'orchestration_status' }
+> {
+  return (
+    chunk.type === 'mcp_status' ||
+    chunk.type === 'mcp_aggregate_status' ||
+    chunk.type === 'skills_status' ||
+    chunk.type === 'orchestration_status'
+  );
+}
+
+/**
  * Type guard to check if a message chunk is any MCP-related chunk
  */
 export function isMCPChunk(
   chunk: MessageChunk
-): chunk is Extract<MessageChunk, { type: 'mcp_tool' | 'mcp_status' }> {
-  return chunk.type === 'mcp_tool' || chunk.type === 'mcp_status';
+): chunk is Extract<MessageChunk, { type: 'mcp_tool' | 'mcp_status' | 'mcp_aggregate_status' }> {
+  return (
+    chunk.type === 'mcp_tool' ||
+    chunk.type === 'mcp_status' ||
+    chunk.type === 'mcp_aggregate_status'
+  );
 }
 
 /**
@@ -271,6 +424,34 @@ export function convertChatChunkToMessageChunk(chatChunk: ChatChunk): MessageChu
         type: 'mcp_status',
         serverName: chatChunk.serverName || '',
         status: chatChunk.status || 'disabled',
+        sessionId: chatChunk.sessionId,
+        contextId: chatChunk.contextId,
+      };
+    case 'mcp_aggregate_status':
+      return {
+        type: 'mcp_aggregate_status',
+        serverCount: chatChunk.serverCount || 0,
+        connectedServers: chatChunk.connectedServers || 0,
+        toolCount: chatChunk.toolCount || 0,
+        availableTools: chatChunk.availableTools || [],
+        sessionId: chatChunk.sessionId,
+        contextId: chatChunk.contextId,
+      };
+    case 'skills_status':
+      return {
+        type: 'skills_status',
+        skillsLoaded: chatChunk.skillsLoaded || 0,
+        availableSkills: chatChunk.availableSkills || [],
+        activeSkill: chatChunk.activeSkill,
+        sessionId: chatChunk.sessionId,
+        contextId: chatChunk.contextId,
+      };
+    case 'orchestration_status':
+      return {
+        type: 'orchestration_status',
+        mcpAvailable: chatChunk.mcpAvailable || false,
+        skillsAvailable: chatChunk.skillsAvailable || false,
+        capabilities: chatChunk.capabilities || [],
         sessionId: chatChunk.sessionId,
         contextId: chatChunk.contextId,
       };

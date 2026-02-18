@@ -7,6 +7,7 @@ import { ExitCode } from '../utils/exit-codes.js';
 import { processTemplate } from '../utils/template.js';
 import { processMultipleContextSources } from '../utils/context-processors.js';
 import { SkillsManager } from '../skills/index.js';
+import { mcpProvider } from '../providers/mcp.js';
 
 export async function runCommand(args: string[], config: CIAConfig): Promise<number> {
   const hasPrompt = args.length > 0 && args.join(' ').trim().length > 0;
@@ -46,6 +47,16 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     let printedAssistantOutput = false;
     let providerError: string | null = null;
     const assistantChunks: string[] = [];
+
+    // Emit status messages for available capabilities (non-blocking)
+    try {
+      await emitStatusMessages(config);
+    } catch (error) {
+      console.log(
+        '[Status] Warning: Status emission failed:',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
 
     // Check if operation was aborted before starting
     if (abortController.signal.aborted) {
@@ -361,3 +372,80 @@ function processInputFile(inputFile: string): string {
 /**
  * Integrates context from multiple sources (files, URLs)
  */
+
+/**
+ * Emit status messages for available MCP tools and Skills capabilities
+ */
+async function emitStatusMessages(config: CIAConfig): Promise<void> {
+  const capabilities: string[] = [];
+
+  // Check MCP status
+  try {
+    await mcpProvider.initialize(config);
+    const mcpStatusChunk = mcpProvider.getStatusChunk();
+
+    if (mcpStatusChunk.type === 'mcp_aggregate_status') {
+      const { serverCount, connectedServers, toolCount } = mcpStatusChunk;
+
+      if (toolCount > 0) {
+        capabilities.push(`${toolCount} MCP tools from ${connectedServers} servers`);
+        console.log(
+          `[Status] MCP: ${connectedServers}/${serverCount} servers connected, ${toolCount} tools available`
+        );
+      } else if (serverCount > 0) {
+        console.log(`[Status] MCP: ${serverCount} servers configured, but no tools available`);
+      } else {
+        console.log('[Status] MCP: No servers configured');
+      }
+    }
+  } catch (error) {
+    console.log(
+      '[Status] MCP initialization failed:',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+
+  // Check Skills status
+  if (config.skills || config.skill) {
+    try {
+      const skillsManager = new SkillsManager();
+      await skillsManager.initialize(config.skills || {});
+      const availableSkills = skillsManager.listSkills();
+
+      if (availableSkills.length > 0) {
+        capabilities.push(`${availableSkills.length} skills available`);
+
+        if (config.skill) {
+          const activeSkill = skillsManager.getSkill(config.skill);
+          if (activeSkill) {
+            console.log(
+              `[Status] Skills: Using '${config.skill}' skill, ${availableSkills.length} total available`
+            );
+          } else {
+            console.log(
+              `[Status] Skills: '${config.skill}' not found, ${availableSkills.length} available: ${availableSkills.map(s => s.name).join(', ')}`
+            );
+          }
+        } else {
+          console.log(
+            `[Status] Skills: ${availableSkills.length} available: ${availableSkills.map(s => s.name).join(', ')}`
+          );
+        }
+      } else {
+        console.log('[Status] Skills: No skills found in configured paths');
+      }
+    } catch (error) {
+      console.log(
+        '[Status] Skills initialization failed:',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  // Show overall status
+  if (capabilities.length > 0) {
+    console.log(`[Status] Available capabilities: ${capabilities.join(', ')}`);
+  } else {
+    console.log('[Status] No enhanced capabilities available - using basic AI provider only');
+  }
+}
