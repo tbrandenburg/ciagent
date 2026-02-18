@@ -223,8 +223,8 @@ We purster a test coverage of >=40% in early stages of the project.
 | 6 | Model listing | `cia models` command across all providers | complete | with 7.1-7.6, 8 | 3c, 4 | .claude/PRPs/plans/model-listing.plan.md |
 | 7.1 | Core infrastructure enhancement | Enhanced MessageChunk types, tool registry, session context, config migration | complete | with 6, 8 | 5 | .claude/PRPs/plans/core-infrastructure-enhancement.plan.md |
 | 7.2 | MCP integration framework | Complete MCP manager with OAuth authentication and robust error handling | complete | with 7.3 | 7.1 | - |
-| 7.3 | Skills system integration | Multi-source skills discovery, SKILL.md parsing, progressive disclosure | in-progress | with 7.2 | 7.1 | .claude/PRPs/plans/skills-system-integration.plan.md |
-| 7.4 | Enhanced orchestration | Integrate MCP and Skills into existing orchestrator, preserve IAssistantClient | pending | - | 7.2, 7.3 | - |
+| 7.3 | Skills system integration | Multi-source skills discovery, SKILL.md parsing, progressive disclosure | complete | with 7.2 | 7.1 | .claude/PRPs/plans/skills-system-integration.plan.md |
+| 7.4 | Enhanced orchestration | Integrate MCP and Skills into existing orchestrator, preserve IAssistantClient | in-progress | - | 7.2, 7.3 | .claude/PRPs/plans/enhanced-orchestration.plan.md |
 | 7.5 | CIA CLI enhancement | MCP and Skills management commands, enhanced status reporting | pending | with 8 | 7.4 | - |
 | 7.6 | CIA testing & integration | Comprehensive testing, performance validation, compatibility assurance | pending | - | 7.5 | - |
 | 8 | Enterprise network support | HTTP proxy and custom CA bundle support | pending | with 6, 7.1, 7.5 | 3c, 4 | - |
