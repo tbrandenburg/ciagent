@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MCPProvider } from '../../src/providers/mcp.js';
 import { toolRegistry } from '../../src/core/tool-registry.js';
+import { isMCPAggregateStatusChunk } from '../../src/providers/types.js';
 
 describe('MCPProvider Integration', () => {
   let mcpProvider: MCPProvider;
@@ -114,6 +115,48 @@ describe('MCPProvider Integration', () => {
       await mcpProvider.initialize();
 
       await expect(async () => await mcpProvider.refresh()).not.toThrow();
+    });
+  });
+
+  describe('Status Chunk Generation', () => {
+    it('should generate MCP aggregate status chunk with empty configuration', async () => {
+      await mcpProvider.initialize();
+
+      const statusChunk = mcpProvider.getStatusChunk();
+
+      expect(isMCPAggregateStatusChunk(statusChunk)).toBe(true);
+      if (isMCPAggregateStatusChunk(statusChunk)) {
+        expect(statusChunk.type).toBe('mcp_aggregate_status');
+        expect(statusChunk.serverCount).toBe(0);
+        expect(statusChunk.connectedServers).toBe(0);
+        expect(statusChunk.toolCount).toBe(0);
+        expect(statusChunk.availableTools).toEqual([]);
+      }
+    });
+
+    it('should generate status chunk with session and context options', async () => {
+      await mcpProvider.initialize();
+
+      const options = { sessionId: 'test-session', contextId: 'test-context' };
+      const statusChunk = mcpProvider.getStatusChunk(options);
+
+      expect(isMCPAggregateStatusChunk(statusChunk)).toBe(true);
+      if (isMCPAggregateStatusChunk(statusChunk)) {
+        expect(statusChunk.sessionId).toBe('test-session');
+        expect(statusChunk.contextId).toBe('test-context');
+      }
+    });
+
+    it('should generate status chunk without optional parameters', async () => {
+      await mcpProvider.initialize();
+
+      const statusChunk = mcpProvider.getStatusChunk();
+
+      expect(isMCPAggregateStatusChunk(statusChunk)).toBe(true);
+      if (isMCPAggregateStatusChunk(statusChunk)) {
+        expect(statusChunk.sessionId).toBeUndefined();
+        expect(statusChunk.contextId).toBeUndefined();
+      }
     });
   });
 });
