@@ -223,7 +223,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | 6 | Model listing | `cia models` command across all providers | complete | with 7.1-7.6, 8 | 3c, 4 | .claude/PRPs/plans/model-listing.plan.md |
 | 7.1 | Core infrastructure enhancement | Enhanced MessageChunk types, tool registry, session context, config migration | complete | with 6, 8 | 5 | .claude/PRPs/plans/core-infrastructure-enhancement.plan.md |
 | 7.2 | MCP integration framework | Complete MCP manager with OAuth authentication and robust error handling | complete | with 7.3 | 7.1 | - |
-| 7.3 | Skills system integration | Multi-source skills discovery, SKILL.md parsing, progressive disclosure | pending | with 7.2 | 7.1 | - |
+| 7.3 | Skills system integration | Multi-source skills discovery, SKILL.md parsing, progressive disclosure | in-progress | with 7.2 | 7.1 | .claude/PRPs/plans/skills-system-integration.plan.md |
 | 7.4 | Enhanced orchestration | Integrate MCP and Skills into existing orchestrator, preserve IAssistantClient | pending | - | 7.2, 7.3 | - |
 | 7.5 | CIA CLI enhancement | MCP and Skills management commands, enhanced status reporting | pending | with 8 | 7.4 | - |
 | 7.6 | CIA testing & integration | Comprehensive testing, performance validation, compatibility assurance | pending | - | 7.5 | - |
@@ -390,9 +390,9 @@ We purster a test coverage of >=40% in early stages of the project.
 
 **Phases 7.1-7.6: CIA Agent Integration**
 - **Goal**: Transform existing system into CIA Agent with complete MCP and Skills support while preserving IAssistantClient compatibility
-- **Architecture**: Based on technical design in `dev/cia-agent-technical-design.md` - combines remote-coding-agent simplicity with OpenCode sophistication
-- **Detailed Implementation**: See comprehensive sub-phase breakdown in `.claude/PRPs/plans/cia-agent-integration.plan.md`
-- **Success signal**: `cia run --provider codex --model gpt-5.2 --enable-mcp --enable-skills "What skills and tools do you have?"` returns comprehensive capabilities; system maintains <150ms overhead with MCP/skills enabled
+- **Architecture**: Based on technical design in `dev/cia-agent-technical-design.md` - combines remote-coding-agent (`dev/remote-coding-agent`) simplicity with OpenCode (`dev/opencode`) sophistication
+- **Detailed Implementation**: See  `dev/cia-agent-technical-design.md` and `dev/opencode`
+- **Success signal**: `cia run --provider codex --model gpt-5.2 "What skills and tools do you have?"` returns comprehensive capabilities; system maintains <150ms overhead with MCP/skills enabled
 
 **Phase 8: Enterprise Network Support**
 - **Goal**: Enable CIA to work in enterprise environments with corporate proxies and custom certificates

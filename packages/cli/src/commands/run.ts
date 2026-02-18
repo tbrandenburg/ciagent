@@ -6,6 +6,7 @@ import { CommonErrors, printError } from '../shared/errors/error-handling.js';
 import { ExitCode } from '../utils/exit-codes.js';
 import { processTemplate } from '../utils/template.js';
 import { processMultipleContextSources } from '../utils/context-processors.js';
+import { SkillsManager } from '../skills/index.js';
 
 export async function runCommand(args: string[], config: CIAConfig): Promise<number> {
   const hasPrompt = args.length > 0 && args.join(' ').trim().length > 0;
@@ -266,6 +267,34 @@ async function resolvePrompt(args: string[], config: CIAConfig): Promise<string>
     } catch (error) {
       // If stdin reading fails, return empty to trigger validation error
       basePrompt = '';
+    }
+  }
+
+  // Load and apply skill if specified
+  if (config.skill) {
+    try {
+      const skillsManager = new SkillsManager();
+      await skillsManager.initialize(config.skills || {});
+
+      const skill = skillsManager.getSkill(config.skill);
+      if (!skill) {
+        console.error(
+          `Warning: Skill '${config.skill}' not found. Available skills: ${skillsManager
+            .listSkills()
+            .map(s => s.name)
+            .join(', ')}`
+        );
+      } else {
+        // Prepend skill content to the base prompt
+        const skillContent = skill.content || '';
+        if (skillContent.trim()) {
+          basePrompt = skillContent.trim() + (basePrompt ? `\n\n${basePrompt}` : '');
+        }
+      }
+    } catch (error) {
+      console.error(
+        `Warning: Failed to load skill '${config.skill}': ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 

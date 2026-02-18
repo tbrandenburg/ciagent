@@ -168,6 +168,7 @@ describe('Enhanced MCP Configuration Schema', () => {
         sources: [
           {
             name: 'test-skill',
+            type: 'local' as const,
             path: '/path/to/skill',
             enabled: true,
           },

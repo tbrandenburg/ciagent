@@ -27,6 +27,7 @@ export interface CIAConfig {
   'api-version'?: string;
   org?: string;
   'log-level'?: string;
+  skill?: string;
   providers?: {
     [providerName: string]: {
       model?: string;
@@ -249,7 +250,9 @@ export function loadStructuredConfig(config: CIAConfig): {
   // Process Skills configuration
   if (config.skills) {
     result.skills = {
-      sources: config.skills.sources.map(source => substituteEnvironmentVariables(source)),
+      sources: config.skills.sources?.map(source => substituteEnvironmentVariables(source)),
+      paths: config.skills.paths?.map(path => substituteEnvironmentVariables(path)),
+      urls: config.skills.urls?.map(url => substituteEnvironmentVariables(url)),
     };
   }
 

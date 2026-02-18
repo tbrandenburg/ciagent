@@ -8,6 +8,7 @@ import { CommonErrors, printError, handleUnexpectedError } from './shared/errors
 import { runCommand } from './commands/run.js';
 import { modelsCommand } from './commands/models.js';
 import { mcpCommand } from './commands/mcp.js';
+import { skillsCommand } from './commands/skills.js';
 
 function parseCliArgs(args: string[]) {
   return parseArgs({
@@ -36,6 +37,7 @@ function parseCliArgs(args: string[]) {
       'api-version': { type: 'string' },
       org: { type: 'string' },
       'log-level': { type: 'string' },
+      skill: { type: 'string' },
     },
     allowPositionals: true,
     strict: true,
@@ -65,6 +67,7 @@ function toCliConfig(values: Record<string, unknown>): Partial<CIAConfig> {
     'api-version': values['api-version'] as string | undefined,
     org: values.org as string | undefined,
     'log-level': values['log-level'] as string | undefined,
+    skill: values.skill as string | undefined,
   };
 }
 
@@ -121,6 +124,8 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
       return await modelsCommand(config);
     case 'mcp':
       return await mcpCommand(positionals.slice(1), config);
+    case 'skills':
+      return await skillsCommand(positionals.slice(1), config);
     default: {
       const error = CommonErrors.unknownCommand(command);
       printError(error);
@@ -160,6 +165,7 @@ async function printUsage(): Promise<void> {
   console.log('  run <prompt>    Execute AI prompt');
   console.log('  models          List available models (phase-1 scaffold)');
   console.log('  mcp             MCP server management');
+  console.log('  skills          Skills system management');
   console.log('');
   console.log('Options:');
   console.log('  -h, --help      Show help information');
@@ -168,6 +174,7 @@ async function printUsage(): Promise<void> {
   console.log('  -m, --model     Model name');
   console.log('  --mode          Execution mode (lazy, strict)');
   console.log('  --format        Output format (default, json)');
+  console.log('  --skill         Load skill by name');
   console.log('');
   console.log('For complete documentation, use: cia --help');
 }
