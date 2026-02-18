@@ -19,6 +19,7 @@ export function printHelpText(): void {
   console.log('COMMANDS:');
   console.log('  run <prompt>         Execute AI prompt with specified provider');
   console.log('  models               List available models (phase-1 scaffold output)');
+  console.log('  skills               Manage and use skills for enhanced AI capabilities');
   console.log('');
   console.log('OPTIONS:');
   console.log('  -h, --help           Show this help message');
@@ -29,6 +30,7 @@ export function printHelpText(): void {
   console.log('  -m, --model          Model name (optional)');
   console.log('  --mode               Execution mode (lazy|strict) [default: lazy]');
   console.log('  --format             Output format (default|json) [default: default]');
+  console.log('  --skill              Load and use a specific skill by name');
   console.log('');
   console.log('INPUT/OUTPUT:');
   console.log('  --input-file         Read prompt from file instead of command line');
@@ -81,6 +83,12 @@ export function printHelpText(): void {
   console.log('');
   console.log('  # Claude provider');
   console.log('  cia run "Hello world" --provider claude');
+  console.log('');
+  console.log('  # Use a skill');
+  console.log('  cia run "Debug this code" --skill debugging-expert');
+  console.log('');
+  console.log('  # List available skills');
+  console.log('  cia skills list');
   console.log('');
   console.log('CONFIGURATION:');
   console.log('  Configuration is loaded in this order (later overrides earlier):');

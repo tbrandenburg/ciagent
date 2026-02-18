@@ -39,11 +39,16 @@ export interface LegacyMCPServerConfig {
 }
 
 export interface SkillsConfig {
-  sources: Array<{
+  sources?: Array<{
     name: string;
+    type: 'local' | 'remote' | 'opencode';
     path: string;
     enabled?: boolean;
+    refreshInterval?: number;
   }>;
+  // OpenCode compatibility fields
+  paths?: string[]; // Additional paths to skill folders
+  urls?: string[]; // URLs to fetch skills from
 }
 
 export interface ToolRegistryConfig {
@@ -83,15 +88,28 @@ export const skillsConfigSchema: JSONSchemaType<SkillsConfig> = {
         type: 'object',
         properties: {
           name: { type: 'string' },
+          type: { type: 'string', enum: ['local', 'remote', 'opencode'] },
           path: { type: 'string' },
           enabled: { type: 'boolean', nullable: true },
+          refreshInterval: { type: 'number', nullable: true },
         },
-        required: ['name', 'path'],
+        required: ['name', 'type', 'path'],
         additionalProperties: false,
       },
+      nullable: true,
+    },
+    paths: {
+      type: 'array',
+      items: { type: 'string' },
+      nullable: true,
+    },
+    urls: {
+      type: 'array',
+      items: { type: 'string' },
+      nullable: true,
     },
   },
-  required: ['sources'],
+  required: [],
   additionalProperties: false,
 };
 

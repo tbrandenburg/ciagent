@@ -54,7 +54,7 @@ export const CommonErrors = {
     createError(
       ExitCode.INPUT_VALIDATION,
       `Unknown command: ${command}`,
-      'Available commands: run, models, mcp',
+      'Available commands: run, models, mcp, skills',
       'Use --help to see all available options'
     ),
 

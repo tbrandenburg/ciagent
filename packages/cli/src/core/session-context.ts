@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { SkillsManager } from '../skills/index.js';
+import type { SkillsConfig } from '../shared/config/schema.js';
 
 /**
  * Session context data structure
@@ -10,6 +12,7 @@ export interface SessionData {
   metadata?: Record<string, unknown>;
   toolCallId?: string;
   contextId?: string;
+  skillsEnabled?: boolean;
 }
 
 /**
@@ -18,9 +21,34 @@ export interface SessionData {
  */
 export class SessionContext {
   private sessions: Map<string, SessionData>;
+  private skillsManager?: SkillsManager;
+  private skillsManagerInitialized = false;
 
   constructor() {
     this.sessions = new Map();
+  }
+
+  /**
+   * Lazy initialization of SkillsManager
+   * Only initializes when skills functionality is needed
+   * Maintains <100ms startup performance by deferring initialization
+   * Called asynchronously to avoid blocking session creation
+   */
+  private async getSkillsManager(config?: SkillsConfig): Promise<SkillsManager> {
+    if (!this.skillsManager || !this.skillsManagerInitialized) {
+      this.skillsManager = new SkillsManager();
+      await this.skillsManager.initialize(config || {});
+      this.skillsManagerInitialized = true;
+    }
+    return this.skillsManager;
+  }
+
+  /**
+   * Check if skills functionality is needed for a session
+   * Used to conditionally initialize SkillsManager
+   */
+  private isSkillsNeeded(metadata?: Record<string, unknown>): boolean {
+    return Boolean(metadata?.skillsEnabled || metadata?.skill);
   }
 
   /**
@@ -39,7 +67,18 @@ export class SessionContext {
       createdAt: now,
       updatedAt: now,
       metadata,
+      skillsEnabled: this.isSkillsNeeded(metadata),
     };
+
+    // Initialize skills manager asynchronously if needed for this session
+    // This is non-blocking to maintain <100ms startup performance
+    if (sessionData.skillsEnabled && metadata?.skillsConfig) {
+      this.getSkillsManager(metadata.skillsConfig as SkillsConfig).catch(error => {
+        console.error(
+          `Warning: Failed to initialize skills manager: ${error instanceof Error ? error.message : String(error)}`
+        );
+      });
+    }
 
     this.sessions.set(sessionId, sessionData);
     return sessionData;
@@ -111,6 +150,26 @@ export class SessionContext {
    */
   listSessions(): string[] {
     return Array.from(this.sessions.keys());
+  }
+
+  /**
+   * Get the initialized SkillsManager instance
+   * @param config Optional skills configuration for lazy initialization
+   * @returns SkillsManager if initialized, undefined otherwise
+   */
+  async getSkillsManagerInstance(config?: SkillsConfig): Promise<SkillsManager | undefined> {
+    if (!this.skillsManagerInitialized && config) {
+      try {
+        await this.getSkillsManager(config);
+        return this.skillsManager;
+      } catch (error) {
+        console.error(
+          `Failed to initialize skills manager: ${error instanceof Error ? error.message : String(error)}`
+        );
+        return undefined;
+      }
+    }
+    return this.skillsManager;
   }
 }
 
