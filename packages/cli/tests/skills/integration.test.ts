@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
 import { main } from '../../src/cli.js';
@@ -7,6 +7,9 @@ import { main } from '../../src/cli.js';
 const testDir = '/tmp/cia-skills-integration-test';
 const skillsDir = join(testDir, '.cia', 'skills');
 const testSkillDir = join(skillsDir, 'test-integration-skill');
+
+// Store original cwd function
+const originalCwd = process.cwd;
 
 const testSkillContent = `---
 name: test-integration-skill
@@ -45,8 +48,8 @@ describe('Skills System Integration', () => {
     mkdirSync(testSkillDir, { recursive: true });
     writeFileSync(join(testSkillDir, 'SKILL.md'), testSkillContent);
 
-    // Set test directory as working directory
-    process.chdir(testDir);
+    // Mock only process.cwd() to return test directory instead of using process.chdir()
+    process.cwd = () => testDir;
   });
 
   afterAll(() => {
@@ -54,6 +57,9 @@ describe('Skills System Integration', () => {
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
+
+    // Restore original process.cwd
+    process.cwd = originalCwd;
   });
 
   describe('Skills Command', () => {
