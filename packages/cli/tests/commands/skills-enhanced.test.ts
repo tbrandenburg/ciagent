@@ -270,26 +270,34 @@ describe('Skills Commands - Enhanced Tests', () => {
     });
 
     it('should handle install command for GitHub repo', async () => {
-      const result = await skillsCommand(['install', 'anthropics/skills'], mockConfig);
+      const result = await skillsCommand(
+        ['install', 'nonexistent-user/nonexistent-repo'],
+        mockConfig
+      );
 
       expect(result).toBe(ExitCode.LLM_EXECUTION); // Git clone fails, shows manual instructions
-      expect(mockConsoleLog).toHaveBeenCalledWith('Installing skill from: anthropics/skills');
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        'Installing skill from: nonexistent-user/nonexistent-repo'
+      );
       expect(mockConsoleLog).toHaveBeenCalledWith('Manual installation:');
       expect(mockConsoleLog).toHaveBeenCalledWith(
-        expect.stringContaining('git clone https://github.com/anthropics/skills')
+        expect.stringContaining('git clone https://github.com/nonexistent-user/nonexistent-repo')
       );
     });
 
     it('should handle install command for Git URL', async () => {
-      const result = await skillsCommand(['install', 'git@github.com:user/skill.git'], mockConfig);
+      const result = await skillsCommand(
+        ['install', 'git@github.com:nonexistent-user/nonexistent-skill.git'],
+        mockConfig
+      );
 
       expect(result).toBe(ExitCode.LLM_EXECUTION); // Git clone fails, shows manual instructions
       expect(mockConsoleLog).toHaveBeenCalledWith(
-        'Installing skill from: git@github.com:user/skill.git'
+        'Installing skill from: git@github.com:nonexistent-user/nonexistent-skill.git'
       );
       expect(mockConsoleLog).toHaveBeenCalledWith('Manual installation:');
       expect(mockConsoleLog).toHaveBeenCalledWith(
-        expect.stringContaining('git clone git@github.com:user/skill.git')
+        expect.stringContaining('git clone git@github.com:nonexistent-user/nonexistent-skill.git')
       );
     });
 
