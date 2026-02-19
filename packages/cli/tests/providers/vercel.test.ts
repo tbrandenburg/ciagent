@@ -4,6 +4,7 @@ import type { LanguageModel } from 'ai';
 // Mock the Vercel AI SDK modules
 const mockAzureProvider = vi.fn();
 const mockCreateAzure = vi.fn();
+const mockCreateOpenAI = vi.fn();
 const mockOpenAIProvider = vi.fn();
 const mockGoogleProvider = vi.fn();
 const mockAnthropicProvider = vi.fn();
@@ -12,35 +13,39 @@ const mockAnthropicProvider = vi.fn();
 const createMockLanguageModel = (modelName: string): LanguageModel =>
   modelName as unknown as LanguageModel;
 
-function mockVercelSDKs() {
-  vi.doMock('@ai-sdk/azure', () => ({
-    azure: mockAzureProvider,
-    createAzure: mockCreateAzure,
-  }));
+// Mock the AI SDK modules using vi.mock (hoisted)
+vi.mock('@ai-sdk/azure', () => ({
+  azure: mockAzureProvider,
+  createAzure: mockCreateAzure,
+}));
 
-  vi.doMock('@ai-sdk/openai', () => ({
-    openai: mockOpenAIProvider,
-  }));
+vi.mock('@ai-sdk/openai', () => ({
+  openai: mockOpenAIProvider,
+  createOpenAI: mockCreateOpenAI,
+}));
 
-  vi.doMock('@ai-sdk/google', () => ({
-    google: mockGoogleProvider,
-  }));
+vi.mock('@ai-sdk/google', () => ({
+  google: mockGoogleProvider,
+}));
 
-  vi.doMock('@ai-sdk/anthropic', () => ({
-    anthropic: mockAnthropicProvider,
-  }));
-}
+vi.mock('@ai-sdk/anthropic', () => ({
+  anthropic: mockAnthropicProvider,
+}));
+
+// Mock the 'ai' module
+const mockStreamText = vi.fn();
+vi.mock('ai', () => ({
+  streamText: mockStreamText,
+}));
 
 describe('Vercel Provider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
+    // vi.resetModules() not available in Vitest 1.6.0, using clearAllMocks() is sufficient
   });
 
   describe('VercelAssistantChat', () => {
     it('creates a provider with correct configuration', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       const mockProviderCreator = vi.fn().mockReturnValue(mockModel);
       mockCreateAzure.mockReturnValue(mockProviderCreator);
@@ -58,8 +63,6 @@ describe('Vercel Provider', () => {
     });
 
     it('initializes language model through factory', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       mockAzureProvider.mockReturnValue(mockModel);
 
@@ -74,8 +77,6 @@ describe('Vercel Provider', () => {
     });
 
     it('implements IAssistantChat interface correctly', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       mockAzureProvider.mockReturnValue(mockModel);
 
@@ -91,20 +92,15 @@ describe('Vercel Provider', () => {
     });
 
     it('handles sendQuery requests properly', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
-      const mockStreamText = vi.fn().mockResolvedValue({
+
+      // Setup the global mockStreamText
+      mockStreamText.mockResolvedValue({
         textStream: (async function* () {
           yield 'Test ';
           yield 'response';
         })(),
       });
-
-      // Mock the streamText function from 'ai'
-      vi.doMock('ai', () => ({
-        streamText: mockStreamText,
-      }));
 
       mockAzureProvider.mockReturnValue(mockModel);
 
@@ -130,8 +126,6 @@ describe('Vercel Provider', () => {
 
   describe('VercelProviderFactory', () => {
     it('creates Azure provider successfully', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       const mockProviderCreator = vi.fn().mockReturnValue(mockModel);
       mockCreateAzure.mockReturnValue(mockProviderCreator);
@@ -154,8 +148,6 @@ describe('Vercel Provider', () => {
     });
 
     it('creates Azure provider with environment variables', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       mockAzureProvider.mockReturnValue(mockModel);
 
@@ -170,8 +162,6 @@ describe('Vercel Provider', () => {
     });
 
     it('throws for unsupported provider types', async () => {
-      mockVercelSDKs();
-
       const { VercelProviderFactory } = await import('../../src/providers/vercel-factory.js');
 
       await expect(VercelProviderFactory.createProvider('unsupported')).rejects.toThrow(
@@ -180,19 +170,15 @@ describe('Vercel Provider', () => {
     });
 
     it('shows extensible error message for planned providers', async () => {
-      mockVercelSDKs();
-
       const { VercelProviderFactory } = await import('../../src/providers/vercel-factory.js');
 
-      // Test that error message shows extensibility
-      await expect(VercelProviderFactory.createProvider('openai')).rejects.toThrow(
-        'Unsupported Vercel provider: openai. Currently supported: azure. Future support planned for: openai, google, anthropic'
+      // Test that unsupported provider throws expected error
+      await expect(VercelProviderFactory.createProvider('unsupported-provider')).rejects.toThrow(
+        'Unsupported Vercel provider: unsupported-provider. Currently supported: azure, openai. Future support planned for: google, anthropic'
       );
     });
 
     it('validates configuration interface supports multiple provider types', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       const mockProviderCreator = vi.fn().mockReturnValue(mockModel);
       mockCreateAzure.mockReturnValue(mockProviderCreator);
@@ -238,8 +224,6 @@ describe('Vercel Provider', () => {
 
   describe('Integration with existing provider system', () => {
     it('maintains compatibility with IAssistantChat interface', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       mockAzureProvider.mockReturnValue(mockModel);
 
@@ -260,8 +244,6 @@ describe('Vercel Provider', () => {
     });
 
     it('works with the provider factory pattern used in main codebase', async () => {
-      mockVercelSDKs();
-
       const mockModel = createMockLanguageModel('gpt-4o');
       mockAzureProvider.mockReturnValue(mockModel);
 

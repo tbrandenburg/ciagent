@@ -115,7 +115,7 @@ describe('Input Validation', () => {
       const result = validateProvider('invalid-provider');
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        'Invalid provider: invalid-provider. Must be one of: azure, codex, claude.'
+        'Invalid provider: invalid-provider. Must be one of: azure, openai, codex, claude.'
       );
     });
 

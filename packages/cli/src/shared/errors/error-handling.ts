@@ -178,6 +178,72 @@ export const CommonErrors = {
       reason,
       'Check your configuration and try again'
     ),
+
+  // MCP-related errors
+  mcpConnectionFailed: (serverName: string, reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `MCP connection failed for server: ${serverName}`,
+      reason,
+      'Check server configuration and ensure MCP server is running'
+    ),
+
+  mcpServerNotFound: (serverName: string): CliError =>
+    createError(
+      ExitCode.INPUT_VALIDATION,
+      `MCP server not found: ${serverName}`,
+      'Server is not configured or does not exist',
+      'Use "cia mcp list" to see available servers or add with "cia mcp add"'
+    ),
+
+  mcpAuthenticationRequired: (serverName: string): CliError =>
+    createError(
+      ExitCode.AUTH_CONFIG,
+      `Authentication required for MCP server: ${serverName}`,
+      'Server requires authentication but no credentials configured',
+      'Configure authentication with "cia mcp auth" command'
+    ),
+
+  // Skills-related errors
+  skillsDiscoveryFailed: (reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      'Skills discovery failed',
+      reason,
+      'Check network connection and skills registry configuration'
+    ),
+
+  skillNotFound: (skillName: string): CliError =>
+    createError(
+      ExitCode.INPUT_VALIDATION,
+      `Skill not found: ${skillName}`,
+      'Skill is not installed or does not exist in registry',
+      'Use "cia skills search" to find available skills or check spelling'
+    ),
+
+  skillInstallationFailed: (skillName: string, reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `Skill installation failed: ${skillName}`,
+      reason,
+      'Check network connection and ensure skill source is accessible'
+    ),
+
+  skillUpdateFailed: (skillName: string, reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `Skill update failed: ${skillName}`,
+      reason,
+      'Check network connection and verify skill source has updates available'
+    ),
+
+  authenticationRequired: (service: string): CliError =>
+    createError(
+      ExitCode.AUTH_CONFIG,
+      `Authentication required for ${service}`,
+      'Service requires authentication but no credentials configured',
+      'Configure authentication credentials and retry operation'
+    ),
 };
 
 // Hierarchical context error system inspired by AI toolkit exception design

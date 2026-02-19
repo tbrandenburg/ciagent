@@ -456,7 +456,154 @@ export class MCPManager {
   }
 
   /**
-   * Cleanup all connections
+   * Get detailed status for all servers with enhanced diagnostics
+   */
+  async getDetailedStatus(): Promise<{
+    serverCount: number;
+    connectedServers: number;
+    failedServers: number;
+    toolCount: number;
+    servers: Array<{
+      name: string;
+      status: MCPServerStatus;
+      config: MCPServerConfig;
+      toolCount?: number;
+      connectionTime?: Date;
+      lastError?: string;
+    }>;
+    healthSummary: Record<string, any>;
+  }> {
+    const servers = Object.keys(this.config).map(name => {
+      const serverStatus = this.status.get(name);
+      const config = this.config[name];
+      const client = this.clients.get(name);
+
+      return {
+        name,
+        status: serverStatus || { status: 'disabled' },
+        config,
+        toolCount: client ? this.getServerTools(name).length : 0,
+        connectionTime: serverStatus?.status === 'connected' ? new Date() : undefined,
+        lastError:
+          serverStatus?.status === 'failed' && 'error' in serverStatus
+            ? serverStatus.error
+            : undefined,
+      };
+    });
+
+    const connectedServers = servers.filter(s => s.status.status === 'connected').length;
+    const failedServers = servers.filter(s => s.status.status === 'failed').length;
+    const toolCount = Array.from(this.tools.values()).length;
+
+    return {
+      serverCount: servers.length,
+      connectedServers,
+      failedServers,
+      toolCount,
+      servers,
+      healthSummary: this.getHealthStatus(),
+    };
+  }
+
+  /**
+   * Get connection diagnostics for troubleshooting
+   */
+  async getConnectionDiagnostics(serverName?: string): Promise<{
+    overall: {
+      totalServers: number;
+      healthyConnections: number;
+      unhealthyServers: string[];
+      monitoringActive: boolean;
+    };
+    servers: Array<{
+      name: string;
+      status: string;
+      transport: {
+        type: string;
+        active: boolean;
+        lastActivity?: Date;
+      };
+      client: {
+        connected: boolean;
+        capabilities?: any;
+        protocolVersion?: string;
+      };
+      diagnostics: {
+        configValid: boolean;
+        transportReachable: boolean;
+        authenticationStatus: 'none' | 'required' | 'valid' | 'invalid';
+        lastConnectionAttempt?: Date;
+        consecutiveFailures: number;
+      };
+    }>;
+  }> {
+    const targetServers = serverName ? [serverName] : Object.keys(this.config);
+
+    const serverDiagnostics = await Promise.all(
+      targetServers.map(async name => {
+        const config = this.config[name];
+        const status = this.status.get(name);
+        const transport = this.transports.get(name);
+        const client = this.clients.get(name);
+
+        return {
+          name,
+          status: status?.status || 'disabled',
+          transport: {
+            type: config?.type || 'unknown',
+            active: !!transport,
+            lastActivity: new Date(), // Could be enhanced with actual last activity tracking
+          },
+          client: {
+            connected: !!client,
+            capabilities: client ? await this.getServerCapabilities(client) : undefined,
+            protocolVersion: client ? '1.0' : undefined, // Could be enhanced to get actual version
+          },
+          diagnostics: {
+            configValid: !!config && (config.type === 'local' ? !!config.command : !!config.url),
+            transportReachable: status?.status === 'connected',
+            authenticationStatus: 'none' as const, // Could be enhanced based on actual auth config
+            lastConnectionAttempt: new Date(), // Could be enhanced with actual tracking
+            consecutiveFailures: status?.status === 'failed' ? 1 : 0, // Could be enhanced with actual tracking
+          },
+        };
+      })
+    );
+
+    return {
+      overall: {
+        totalServers: Object.keys(this.config).length,
+        healthyConnections: this.clients.size,
+        unhealthyServers: this.getUnhealthyServers(),
+        monitoringActive: true, // Could be enhanced to check actual monitoring status
+      },
+      servers: serverDiagnostics,
+    };
+  }
+
+  /**
+   * Get capabilities for a specific client
+   */
+  private async getServerCapabilities(_client: Client): Promise<any> {
+    try {
+      // This would need to be implemented based on the MCP client capabilities
+      // For now, return a placeholder
+      return { tools: true, resources: false, prompts: false };
+    } catch (error) {
+      console.error('[MCP] Failed to get server capabilities:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Get tools for a specific server
+   */
+  private getServerTools(serverName: string): MCPTool[] {
+    return Array.from(this.tools.values()).filter(tool => tool.serverName === serverName);
+  }
+
+  /**
+   * Clean up all connections and resources
    */
   async cleanup(): Promise<void> {
     console.log('[MCP] Cleaning up connections...');

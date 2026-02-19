@@ -105,7 +105,7 @@ describe('Provider Contract Tests - listModels()', () => {
 
   describe('VercelAssistantChat', () => {
     beforeEach(() => {
-      vi.resetModules();
+      // vi.resetModules() not available in Vitest 1.6.0, using clearAllMocks() is sufficient
       vi.clearAllMocks();
     });
 

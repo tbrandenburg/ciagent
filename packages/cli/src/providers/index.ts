@@ -10,7 +10,7 @@ import { readFileSync } from 'fs';
 import { JSONSchema7 } from 'json-schema';
 
 // Extensible list of supported Vercel providers
-const VERCEL_PROVIDERS = ['azure']; // Will expand as new Vercel providers are added
+const VERCEL_PROVIDERS = ['azure', 'openai']; // Will expand as new Vercel providers are added
 
 export async function createAssistantChat(
   provider: string,
