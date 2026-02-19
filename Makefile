@@ -1,5 +1,8 @@
-.PHONY: help install build test test-coverage clean dev lint type-check
+.PHONY: help install build test test-coverage clean dev lint type-check global-install
 .DEFAULT_GOAL := help
+
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
 
 # Colors for help text
 YELLOW := \033[33m
@@ -32,6 +35,10 @@ test-coverage: ## Run tests with coverage report
 
 build: ## Build CLI binary
 	bun run build
+
+global-install: build ## Install cia binary to $(BINDIR)
+	install -d "$(BINDIR)"
+	install -m 755 dist/cia "$(BINDIR)/cia"
 
 dev: ## Run CLI in development mode
 	bun run dev:cli
