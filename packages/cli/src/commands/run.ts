@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, extname } from 'path';
-import { CIAConfig, loadStructuredConfig } from '../shared/config/loader.js';
+import { CIAConfig } from '../shared/config/loader.js';
 import { createAssistantChat } from '../providers/index.js';
 import { CommonErrors, printError } from '../shared/errors/error-handling.js';
 import { ExitCode } from '../utils/exit-codes.js';
@@ -50,6 +50,16 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     let printedAssistantOutput = false;
     let providerError: string | null = null;
     const assistantChunks: string[] = [];
+
+    // Emit status messages for available capabilities (non-blocking)
+    try {
+      await emitStatusMessages(config);
+    } catch (error) {
+      console.log(
+        '[Status] Warning: Status emission failed:',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
 
     // Check if operation was aborted before starting
     if (abortController.signal.aborted) {
@@ -367,6 +377,7 @@ function processInputFile(inputFile: string): string {
  */
 
 /**
+/**
  * Detects capability queries and enhances them with comprehensive tool/skill inventory
  */
 async function enhanceCapabilityQuery(prompt: string, config: CIAConfig): Promise<string> {
@@ -400,7 +411,6 @@ async function enhanceCapabilityQuery(prompt: string, config: CIAConfig): Promis
 
   try {
     // Get MCP tools and server status
-    const structuredConfig = loadStructuredConfig(config);
     await mcpProvider.initialize(config);
     const mcpHealthInfo = mcpProvider.getHealthInfo();
 
@@ -442,70 +452,119 @@ async function enhanceCapabilityQuery(prompt: string, config: CIAConfig): Promis
     }
 
     // Get Skills information
-    const skillsManager = new SkillsManager();
-    await skillsManager.initialize(structuredConfig?.skills || {});
-    const skills = skillsManager.listSkills();
-    const skillsStatus = skillsManager.getStatusInfo();
+    if (config.skills || config.skill) {
+      const skillsManager = new SkillsManager();
+      await skillsManager.initialize(config.skills || {});
+      const availableSkills = skillsManager.listSkills();
 
-    capabilityInventory.push('### Skills\n');
-    capabilityInventory.push(
-      `**Status**: ${skillsStatus.skillCount} skills available from ${skillsStatus.sourceCount} sources\n`
-    );
+      capabilityInventory.push('### Skills System\n');
+      if (availableSkills.length > 0) {
+        capabilityInventory.push(`**Available Skills** (${availableSkills.length} total):\n`);
+        availableSkills.forEach(skill => {
+          capabilityInventory.push(`- \`${skill.name}\`: ${skill.description}`);
+        });
+        capabilityInventory.push('');
 
-    if (skills.length > 0) {
-      capabilityInventory.push(`**Available Skills** (${skills.length} total):\n`);
-      skills.forEach(skill => {
-        capabilityInventory.push(`- **${skill.name}**: ${skill.description}`);
-        capabilityInventory.push(`  - Source: ${skill.source}`);
-        if (skill.metadata.compatibility) {
-          capabilityInventory.push(`  - Compatibility: ${skill.metadata.compatibility}`);
+        if (config.skill) {
+          const activeSkill = skillsManager.getSkill(config.skill);
+          if (activeSkill) {
+            capabilityInventory.push(`**Currently Using**: ${config.skill}\n`);
+          } else {
+            capabilityInventory.push(`**Note**: Requested skill '${config.skill}' not found\n`);
+          }
         }
-      });
-      capabilityInventory.push('');
+      } else {
+        capabilityInventory.push('- No skills found in configured paths\n');
+        capabilityInventory.push('- Use `cia skills install <source>` to add skills\n');
+      }
     } else {
-      capabilityInventory.push('- **Status**: No skills currently available\n');
-      capabilityInventory.push(
-        '- Skills are discovered from: `~/.cia/skills/`, `~/.claude/skills/`, `~/.opencode/skills/`\n'
-      );
-      capabilityInventory.push('- Use `cia skills install <source>` to add skills\n');
+      capabilityInventory.push('### Skills System\n');
+      capabilityInventory.push('- Skills not configured\n');
+      capabilityInventory.push('- Use `cia skills list` to discover available skills\n');
     }
-
-    // Add core CLI commands
-    capabilityInventory.push('### Core CLI Commands\n');
-    capabilityInventory.push('**MCP Server Management**:\n');
-    capabilityInventory.push('- `cia mcp list` - List configured MCP servers\n');
-    capabilityInventory.push('- `cia mcp add <name> <url-or-command>` - Add new MCP server\n');
-    capabilityInventory.push('- `cia mcp status` - Show MCP server health diagnostics\n');
-    capabilityInventory.push('- `cia mcp get <server>` - Get detailed server information\n');
-    capabilityInventory.push('- `cia mcp remove <server>` - Remove MCP server configuration\n');
-    capabilityInventory.push('');
-    capabilityInventory.push('**Skills Management**:\n');
-    capabilityInventory.push('- `cia skills list` - Show available skills\n');
-    capabilityInventory.push(
-      '- `cia skills install <source>` - Install skill from GitHub, git URL, or local path\n'
-    );
-    capabilityInventory.push(
-      '- `cia skills search <query>` - Search skills by name or description\n'
-    );
-    capabilityInventory.push('- `cia skills info <skill>` - Show detailed skill information\n');
-    capabilityInventory.push('- `cia skills status` - Show skills system status\n');
-    capabilityInventory.push('- `cia skills refresh` - Reload skills from all sources\n');
-    capabilityInventory.push('');
-    capabilityInventory.push('**AI Query Execution**:\n');
-    capabilityInventory.push(
-      '- `cia run "<prompt>"` - Execute AI query with comprehensive tool access\n'
-    );
-    capabilityInventory.push('- `cia models` - List available AI models\n');
   } catch (error) {
-    // If capability discovery fails, add error information but don't fail the query
-    capabilityInventory.push('### Capability Discovery Error\n');
     capabilityInventory.push(
-      `Warning: Failed to gather complete capability inventory: ${error instanceof Error ? error.message : String(error)}\n`
+      '\n**Note**: Some capabilities may not be available due to initialization errors\n'
     );
-    capabilityInventory.push('Basic CIA CLI commands are still available.\n');
   }
 
-  // Enhance the original prompt with capability information
   const inventoryText = capabilityInventory.join('\n');
   return `${inventoryText}\n\n---\n\n**User Query**: ${prompt}\n\nBased on the capability inventory above, please provide a comprehensive answer about the tools and skills available through this CIA CLI instance.`;
+}
+
+/**
+ * Emit status messages for available MCP tools and Skills capabilities
+ */
+async function emitStatusMessages(config: CIAConfig): Promise<void> {
+  const capabilities: string[] = [];
+
+  // Check MCP status
+  try {
+    await mcpProvider.initialize(config);
+    const mcpStatusChunk = mcpProvider.getStatusChunk();
+
+    if (mcpStatusChunk.type === 'mcp_aggregate_status') {
+      const { serverCount, connectedServers, toolCount } = mcpStatusChunk;
+
+      if (toolCount > 0) {
+        capabilities.push(`${toolCount} MCP tools from ${connectedServers} servers`);
+        console.log(
+          `[Status] MCP: ${connectedServers}/${serverCount} servers connected, ${toolCount} tools available`
+        );
+      } else if (serverCount > 0) {
+        console.log(`[Status] MCP: ${serverCount} servers configured, but no tools available`);
+      } else {
+        console.log('[Status] MCP: No servers configured');
+      }
+    }
+  } catch (error) {
+    console.log(
+      '[Status] MCP initialization failed:',
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+
+  // Check Skills status
+  if (config.skills || config.skill) {
+    try {
+      const skillsManager = new SkillsManager();
+      await skillsManager.initialize(config.skills || {});
+      const availableSkills = skillsManager.listSkills();
+
+      if (availableSkills.length > 0) {
+        capabilities.push(`${availableSkills.length} skills available`);
+
+        if (config.skill) {
+          const activeSkill = skillsManager.getSkill(config.skill);
+          if (activeSkill) {
+            console.log(
+              `[Status] Skills: Using '${config.skill}' skill, ${availableSkills.length} total available`
+            );
+          } else {
+            console.log(
+              `[Status] Skills: '${config.skill}' not found, ${availableSkills.length} available: ${availableSkills.map(s => s.name).join(', ')}`
+            );
+          }
+        } else {
+          console.log(
+            `[Status] Skills: ${availableSkills.length} available: ${availableSkills.map(s => s.name).join(', ')}`
+          );
+        }
+      } else {
+        console.log('[Status] Skills: No skills found in configured paths');
+      }
+    } catch (error) {
+      console.log(
+        '[Status] Skills initialization failed:',
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
+  // Show overall status
+  if (capabilities.length > 0) {
+    console.log(`[Status] Available capabilities: ${capabilities.join(', ')}`);
+  } else {
+    console.log('[Status] No enhanced capabilities available - using basic AI provider only');
+  }
 }

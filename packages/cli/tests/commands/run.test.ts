@@ -106,4 +106,109 @@ describe('runCommand', () => {
 
     logSpy.mockRestore();
   });
+
+  describe('Status Message Integration', () => {
+    it('should display MCP and Skills status when available', async () => {
+      const mockAssistantChat = {
+        sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
+        getType: () => 'codex',
+        listModels: vi.fn().mockResolvedValue(['codex-v1']),
+      };
+
+      const createAssistantChatSpy = vi
+        .spyOn(providers, 'createAssistantChat')
+        .mockResolvedValue(mockAssistantChat);
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const exitCode = await runCommand(['hello'], {
+        provider: 'codex',
+        skill: 'test-skill',
+        skills: { paths: ['/test/skills'] },
+      });
+
+      expect(exitCode).toBe(0);
+
+      // Check for status messages (order matters)
+      const logCalls = logSpy.mock.calls.map(call => call[0]);
+
+      // Should contain MCP status
+      expect(
+        logCalls.some(call => typeof call === 'string' && call.includes('[Status] MCP:'))
+      ).toBe(true);
+
+      // Should contain overall capability status
+      expect(
+        logCalls.some(
+          call =>
+            typeof call === 'string' &&
+            (call.includes('[Status] Available capabilities:') ||
+              call.includes('[Status] No enhanced capabilities available'))
+        )
+      ).toBe(true);
+
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+
+    it('should handle MCP initialization failure gracefully', async () => {
+      const mockAssistantChat = {
+        sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
+        getType: () => 'codex',
+        listModels: vi.fn().mockResolvedValue(['codex-v1']),
+      };
+
+      const createAssistantChatSpy = vi
+        .spyOn(providers, 'createAssistantChat')
+        .mockResolvedValue(mockAssistantChat);
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const exitCode = await runCommand(['hello'], { provider: 'codex' });
+
+      expect(exitCode).toBe(0);
+
+      // Should still show assistant response even if status fails
+      expect(logSpy).toHaveBeenCalledWith('ok');
+
+      // Should have attempted to show status
+      const logCalls = logSpy.mock.calls.map(call => call[0]);
+      expect(logCalls.some(call => typeof call === 'string' && call.includes('[Status]'))).toBe(
+        true
+      );
+
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+
+    it('should show no enhanced capabilities when none configured', async () => {
+      const mockAssistantChat = {
+        sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
+        getType: () => 'codex',
+        listModels: vi.fn().mockResolvedValue(['codex-v1']),
+      };
+
+      const createAssistantChatSpy = vi
+        .spyOn(providers, 'createAssistantChat')
+        .mockResolvedValue(mockAssistantChat);
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const exitCode = await runCommand(['hello'], { provider: 'codex' });
+
+      expect(exitCode).toBe(0);
+
+      // Should show no enhanced capabilities message
+      const logCalls = logSpy.mock.calls.map(call => call[0]);
+      expect(
+        logCalls.some(
+          call =>
+            typeof call === 'string' && call.includes('[Status] No enhanced capabilities available')
+        )
+      ).toBe(true);
+
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
+  });
 });
