@@ -88,6 +88,28 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
 
   const { values, positionals } = parsedArgs;
 
+  const command = positionals[0];
+
+  // Handle command-specific help first
+  if (values.help && command) {
+    switch (command.toLowerCase()) {
+      case 'mcp':
+        // For MCP help, call the MCP command with empty args to trigger usage
+        const config = withDefaults(loadConfig(toCliConfig(values as Record<string, unknown>)));
+        return await mcpCommand([], config);
+      case 'skills':
+        // For Skills help, call the Skills command with empty args to trigger usage
+        const skillsConfig = withDefaults(
+          loadConfig(toCliConfig(values as Record<string, unknown>))
+        );
+        return await skillsCommand([], skillsConfig);
+      default:
+        // Fall through to general help
+        break;
+    }
+  }
+
+  // Handle general help and version
   if (values.help) {
     await printHelp();
     return ExitCode.SUCCESS;
@@ -110,7 +132,6 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
     return error.code;
   }
 
-  const command = positionals[0];
   if (!command) {
     const error = CommonErrors.missingCommand();
     printError(error);

@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@ai-sdk/azure": "^3.0.30",
+    "@ai-sdk/openai": "^3.0.30",
     "@anthropic-ai/claude-agent-sdk": "^0.2.7",
     "@anthropic-ai/sdk": "^0.74.0",
     "@modelcontextprotocol/sdk": "^1.26.0",

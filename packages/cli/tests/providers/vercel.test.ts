@@ -34,7 +34,7 @@ function mockVercelSDKs() {
 describe('Vercel Provider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.resetModules();
+    // vi.resetModules() not available in Vitest 1.6.0, using clearAllMocks() is sufficient
   });
 
   describe('VercelAssistantChat', () => {

@@ -49,6 +49,34 @@ export class VercelProviderFactory {
         }
       }
 
+      case 'openai': {
+        const openaiModule = await import('@ai-sdk/openai');
+
+        // Default to LLMv7 endpoint if no custom config is provided
+        const defaultConfig = {
+          baseURL: 'https://api.llm7.io/v1',
+          model: 'gpt-4',
+          apiKey: 'sk-dummy', // LLMv7 doesn't require a real API key, but SDK might need format
+        };
+
+        if (config?.apiKey || config?.organization || config?.baseUrl) {
+          // Custom configuration
+          const openaiProvider = openaiModule.createOpenAI({
+            apiKey: config.apiKey || defaultConfig.apiKey,
+            organization: config.organization,
+            baseURL: config.baseUrl || defaultConfig.baseURL,
+          });
+          return openaiProvider(config?.model || defaultConfig.model);
+        } else {
+          // Use LLMv7 endpoint as default
+          const openaiProvider = openaiModule.createOpenAI({
+            apiKey: defaultConfig.apiKey,
+            baseURL: defaultConfig.baseURL,
+          });
+          return openaiProvider(defaultConfig.model);
+        }
+      }
+
       // Future providers will be added here with dynamic imports:
       // case 'openai': {
       //   const openaiModule = await import('@ai-sdk/openai');
@@ -91,7 +119,7 @@ export class VercelProviderFactory {
 
       default:
         throw new Error(
-          `Unsupported Vercel provider: ${type}. Currently supported: azure. Future support planned for: openai, google, anthropic`
+          `Unsupported Vercel provider: ${type}. Currently supported: azure, openai. Future support planned for: google, anthropic`
         );
     }
   }

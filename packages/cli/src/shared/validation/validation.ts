@@ -12,7 +12,7 @@ export interface ValidationResult {
 export function validateConfig(config: CIAConfig): ValidationResult {
   const errors: string[] = [];
   // Extensible provider list - matches the VERCEL_PROVIDERS + existing providers
-  const validProviders = ['azure', 'codex', 'claude'];
+  const validProviders = ['azure', 'openai', 'codex', 'claude'];
 
   if (config.mode && !['lazy', 'strict'].includes(config.mode)) {
     errors.push(`Invalid mode: ${config.mode}. Must be 'lazy' or 'strict'.`);
@@ -123,7 +123,7 @@ export function validateConfig(config: CIAConfig): ValidationResult {
 
 export function validateProvider(provider?: string): ValidationResult {
   // Extensible provider list - matches the VERCEL_PROVIDERS + existing providers
-  const validProviders = ['azure', 'codex', 'claude'];
+  const validProviders = ['azure', 'openai', 'codex', 'claude'];
 
   if (!provider) {
     return { isValid: false, errors: ['Provider is required'] };

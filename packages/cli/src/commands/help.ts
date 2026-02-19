@@ -19,6 +19,7 @@ export function printHelpText(): void {
   console.log('COMMANDS:');
   console.log('  run <prompt>         Execute AI prompt with specified provider');
   console.log('  models               List available models (phase-1 scaffold output)');
+  console.log('  mcp                  Manage Model Context Protocol servers');
   console.log('  skills               Manage and use skills for enhanced AI capabilities');
   console.log('');
   console.log('OPTIONS:');

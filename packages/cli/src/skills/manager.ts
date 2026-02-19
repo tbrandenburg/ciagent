@@ -3,9 +3,10 @@
  * Follows MCPManager pattern with multi-source discovery and error isolation
  */
 
-import { readdir, stat } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { readdir, stat, mkdir, rm, readFile, access } from 'node:fs/promises';
+import { join, resolve, basename, dirname } from 'node:path';
 import { homedir } from 'node:os';
+import { execSync } from 'node:child_process';
 import { SkillsRegistry } from './registry.js';
 import { parseSkillFile } from './parser.js';
 import { SkillDefinition, SkillSourceInfo, SkillDiscoveryOptions } from './types.js';
@@ -294,6 +295,341 @@ export class SkillsManager {
     });
 
     return processedContent;
+  }
+
+  /**
+   * Install skill from various source types (SkillCreator AI pattern)
+   */
+  async installFromSource(
+    source: string,
+    options: { force?: boolean } = {}
+  ): Promise<{
+    success: boolean;
+    skillName?: string;
+    error?: string;
+  }> {
+    console.log(`[Skills] Installing skill from source: ${source}`);
+
+    try {
+      // Determine source type and route to appropriate installer
+      if (this.isGitHubRepo(source)) {
+        return await this.installFromGitHub(source, options);
+      } else if (this.isGitUrl(source)) {
+        return await this.installFromGit(source, options);
+      } else if (this.isLocalPath(source)) {
+        return await this.installFromLocal(source, options);
+      } else {
+        // Assume it's a registry skill name
+        return await this.installFromRegistry(source, options);
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[Skills] Installation failed for ${source}:`, errorMsg);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Install skill from GitHub repository (owner/repo or owner/repo/subpath)
+   */
+  async installFromGitHub(
+    repo: string,
+    options: { force?: boolean } = {}
+  ): Promise<{
+    success: boolean;
+    skillName?: string;
+    error?: string;
+  }> {
+    const gitUrl = `https://github.com/${repo}.git`;
+    return await this.installFromGit(gitUrl, options);
+  }
+
+  /**
+   * Install skill from Git URL
+   */
+  async installFromGit(
+    gitUrl: string,
+    options: { force?: boolean } = {}
+  ): Promise<{
+    success: boolean;
+    skillName?: string;
+    error?: string;
+  }> {
+    const skillName = this.extractSkillNameFromGitUrl(gitUrl);
+    const installDir = this.getSkillInstallPath(skillName);
+
+    try {
+      // Check if skill already exists
+      if (!options.force) {
+        try {
+          await access(installDir);
+          return {
+            success: false,
+            error: `Skill '${skillName}' already exists. Use --force to overwrite.`,
+          };
+        } catch {
+          // Directory doesn't exist, proceed with installation
+        }
+      }
+
+      // Ensure parent directory exists
+      await mkdir(dirname(installDir), { recursive: true });
+
+      // Clone or update the repository
+      if (options.force) {
+        try {
+          await rm(installDir, { recursive: true, force: true });
+        } catch {
+          // Directory may not exist, continue
+        }
+      }
+
+      console.log(`[Skills] Cloning ${gitUrl} to ${installDir}...`);
+      execSync(`git clone --quiet "${gitUrl}" "${installDir}"`, { stdio: 'pipe' });
+
+      // Verify the skill was installed correctly
+      const isValid = await this.validateSkillInstallation(installDir);
+      if (!isValid) {
+        await rm(installDir, { recursive: true, force: true });
+        return { success: false, error: `Invalid skill structure in ${gitUrl}` };
+      }
+
+      // Refresh skills discovery to include new skill
+      await this.discoverSkills();
+
+      console.log(`[Skills] Successfully installed skill '${skillName}' from ${gitUrl}`);
+      return { success: true, skillName };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      // Clean up on failure
+      try {
+        await rm(installDir, { recursive: true, force: true });
+      } catch {
+        // Cleanup may fail, but that's okay
+      }
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Install skill from local filesystem path
+   */
+  async installFromLocal(
+    sourcePath: string,
+    options: { force?: boolean } = {}
+  ): Promise<{
+    success: boolean;
+    skillName?: string;
+    error?: string;
+  }> {
+    const resolvedPath = resolve(sourcePath);
+
+    try {
+      // Verify source exists and is valid
+      const isValid = await this.validateSkillInstallation(resolvedPath);
+      if (!isValid) {
+        return { success: false, error: `Invalid skill structure at ${resolvedPath}` };
+      }
+
+      const skillName = basename(resolvedPath);
+      const installDir = this.getSkillInstallPath(skillName);
+
+      // Check if skill already exists
+      if (!options.force) {
+        try {
+          await access(installDir);
+          return {
+            success: false,
+            error: `Skill '${skillName}' already exists. Use --force to overwrite.`,
+          };
+        } catch {
+          // Directory doesn't exist, proceed with installation
+        }
+      }
+
+      // Copy skill to install location
+      await mkdir(dirname(installDir), { recursive: true });
+
+      if (options.force) {
+        try {
+          await rm(installDir, { recursive: true, force: true });
+        } catch {
+          // Directory may not exist, continue
+        }
+      }
+
+      // Copy the skill directory
+      console.log(`[Skills] Copying skill from ${resolvedPath} to ${installDir}...`);
+      execSync(`cp -r "${resolvedPath}" "${installDir}"`, { stdio: 'pipe' });
+
+      // Refresh skills discovery to include new skill
+      await this.discoverSkills();
+
+      console.log(`[Skills] Successfully installed skill '${skillName}' from ${resolvedPath}`);
+      return { success: true, skillName };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Install skill from registry by name
+   */
+  async installFromRegistry(
+    skillName: string,
+    _options: { force?: boolean } = {}
+  ): Promise<{
+    success: boolean;
+    skillName?: string;
+    error?: string;
+  }> {
+    // This would connect to a skills registry in the future
+    // For now, return not implemented
+    return {
+      success: false,
+      error: `Registry installation not yet implemented for skill '${skillName}'. Use GitHub repo, git URL, or local path.`,
+    };
+  }
+
+  /**
+   * Uninstall a skill
+   */
+  async uninstallSkill(skillName: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const installDir = this.getSkillInstallPath(skillName);
+
+    try {
+      // Check if skill exists
+      try {
+        await access(installDir);
+      } catch {
+        return { success: false, error: `Skill '${skillName}' is not installed.` };
+      }
+
+      // Remove skill directory
+      console.log(`[Skills] Removing skill '${skillName}' from ${installDir}...`);
+      await rm(installDir, { recursive: true, force: true });
+
+      // Refresh skills discovery to remove from registry
+      await this.discoverSkills();
+
+      console.log(`[Skills] Successfully uninstalled skill '${skillName}'`);
+      return { success: true };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Update an installed skill
+   */
+  async updateSkill(skillName: string): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const installDir = this.getSkillInstallPath(skillName);
+
+    try {
+      // Check if skill exists
+      try {
+        await access(installDir);
+      } catch {
+        return { success: false, error: `Skill '${skillName}' is not installed.` };
+      }
+
+      // Check if it's a git repository
+      try {
+        await access(join(installDir, '.git'));
+      } catch {
+        return {
+          success: false,
+          error: `Skill '${skillName}' is not a git repository and cannot be updated.`,
+        };
+      }
+
+      // Pull latest changes
+      console.log(`[Skills] Updating skill '${skillName}' in ${installDir}...`);
+      execSync('git pull --quiet', { cwd: installDir, stdio: 'pipe' });
+
+      // Refresh skills discovery to update registry
+      await this.discoverSkills();
+
+      console.log(`[Skills] Successfully updated skill '${skillName}'`);
+      return { success: true };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Validate skill installation structure
+   */
+  private async validateSkillInstallation(skillPath: string): Promise<boolean> {
+    try {
+      // Check if SKILL.md exists
+      const skillFilePath = join(skillPath, 'SKILL.md');
+      await access(skillFilePath);
+
+      // Try to parse the skill file to ensure it's valid
+      const skillContent = await readFile(skillFilePath, 'utf-8');
+      const skill = parseSkillFile(skillContent, skillFilePath);
+
+      return !!skill;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get installation path for a skill
+   */
+  private getSkillInstallPath(skillName: string): string {
+    // Install to ~/.cia/skills/ directory
+    return join(homedir(), '.cia', 'skills', skillName);
+  }
+
+  /**
+   * Check if source is a GitHub repo (owner/repo format)
+   */
+  private isGitHubRepo(source: string): boolean {
+    return /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+(\/.*)?$/.test(source) && !source.includes('.');
+  }
+
+  /**
+   * Check if source is a Git URL
+   */
+  private isGitUrl(source: string): boolean {
+    return (
+      source.startsWith('git@') ||
+      source.startsWith('https://github.com/') ||
+      source.startsWith('http://github.com/') ||
+      source.endsWith('.git')
+    );
+  }
+
+  /**
+   * Check if source is a local filesystem path
+   */
+  private isLocalPath(source: string): boolean {
+    return (
+      source.startsWith('./') ||
+      source.startsWith('../') ||
+      source.startsWith('/') ||
+      source.startsWith('~')
+    );
+  }
+
+  /**
+   * Extract skill name from Git URL
+   */
+  private extractSkillNameFromGitUrl(gitUrl: string): string {
+    const match = gitUrl.match(/\/([^\/]+?)(?:\.git)?$/);
+    return match ? match[1] : 'unknown-skill';
   }
 
   /**
