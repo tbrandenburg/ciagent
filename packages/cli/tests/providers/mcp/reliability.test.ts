@@ -141,6 +141,19 @@ describe('MCP Reliability Layer', () => {
       expect(health!.lastError).toBe('timeout');
     });
 
+    test('tracks recovery transition after repeated failures', () => {
+      monitor.updateHealth('server1', false, 'connection failed');
+      monitor.updateHealth('server1', false, 'timeout');
+      monitor.updateHealth('server1', true);
+
+      const health = monitor.getHealth('server1');
+      expect(health).toBeDefined();
+      expect(health!.connected).toBe(true);
+      expect(health!.errorCount).toBe(0);
+      expect(health!.lastError).toBe('timeout');
+      expect(monitor.getUnhealthyServers()).not.toContain('server1');
+    });
+
     test('resets error count on successful connection', () => {
       monitor.updateHealth('server1', false, 'error');
       monitor.updateHealth('server1', true);
@@ -195,6 +208,19 @@ describe('MCP Reliability Layer', () => {
       monitor.startMonitoring();
       monitor.stopMonitoring();
       monitor.stopMonitoring();
+    });
+
+    test('keeps health summary consistent with unhealthy server list', () => {
+      monitor.updateHealth('server1', true);
+      monitor.updateHealth('server2', false, 'connection failed');
+      monitor.updateHealth('server3', false, 'timeout');
+
+      const allHealth = monitor.getAllHealth();
+      const expectedUnhealthy = Object.keys(allHealth).filter(
+        serverId => !monitor.isHealthy(serverId)
+      );
+
+      expect(monitor.getUnhealthyServers().sort()).toEqual(expectedUnhealthy.sort());
     });
   });
 

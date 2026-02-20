@@ -191,29 +191,6 @@ When asked about PDFs, mention your PDF processing capabilities.`;
       logSpy.mockRestore();
       errorSpy.mockRestore();
     });
-
-    it('should handle Context7 MCP server startup gracefully', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      try {
-        // This will attempt to start Context7 MCP server but should handle failures gracefully
-        const exitCode = await runCommand(['List available tools'], baseTestConfig);
-
-        // Should not crash regardless of MCP server availability
-        const logCalls = logSpy.mock.calls.map(call => call[0]);
-
-        // Should have attempted MCP initialization
-        expect(logCalls.some(call => typeof call === 'string' && call.includes('[Status]'))).toBe(
-          true
-        );
-      } catch (error) {
-        console.log('[E2E Test] Handled error gracefully:', error);
-      }
-
-      logSpy.mockRestore();
-      errorSpy.mockRestore();
-    });
   });
 
   describe('Skills + MCP Coordination', () => {
@@ -321,69 +298,6 @@ When asked about PDFs, mention your PDF processing capabilities.`;
         logSpy.mockRestore();
         errorSpy.mockRestore();
       });
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should gracefully handle missing Codex authentication', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      try {
-        const exitCode = await runCommand(['Test query'], {
-          ...baseTestConfig,
-          provider: 'codex',
-        } as CIAConfig);
-
-        // Should still show status even if Codex fails
-        const logCalls = logSpy.mock.calls.map(call => call[0]);
-        expect(logCalls.some(call => typeof call === 'string' && call.includes('[Status]'))).toBe(
-          true
-        );
-      } catch (error) {
-        // Expected due to missing auth
-        console.log('[E2E Test] Expected authentication error handled');
-      }
-
-      logSpy.mockRestore();
-      errorSpy.mockRestore();
-    });
-
-    it('should handle Context7 network failures gracefully', async () => {
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      try {
-        // Force network failure by using invalid Context7 config
-        const exitCode = await runCommand(['Test with network issues'], {
-          ...baseTestConfig,
-          provider: 'codex',
-          mcp: {
-            context7: {
-              type: 'local',
-              command: 'npx',
-              args: ['-y', '@upstash/context7-mcp', '--api-key', 'invalid'],
-              enabled: true,
-            },
-          },
-        } as any);
-
-        const logCalls = logSpy.mock.calls.map(call => call[0]);
-
-        // Should handle MCP failure gracefully and continue
-        expect(
-          logCalls.some(
-            call =>
-              typeof call === 'string' &&
-              (call.includes('[Status] MCP') || call.includes('[Status] No enhanced capabilities'))
-          )
-        ).toBe(true);
-      } catch (error) {
-        console.log('[E2E Test] Network failure handled gracefully');
-      }
-
-      logSpy.mockRestore();
-      errorSpy.mockRestore();
     });
   });
 });

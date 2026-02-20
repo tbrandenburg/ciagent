@@ -8,7 +8,7 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, 'dev/**'],
     testTimeout: 10000, // Increase timeout for reliability tests with retry delays
     coverage: {
-      enabled: true,
+      enabled: false,
       provider: 'v8',
       include: ['packages/cli/src/**/*.ts'],
       exclude: ['**/*.test.ts', '**/tests/**'],

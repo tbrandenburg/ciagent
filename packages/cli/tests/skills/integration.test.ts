@@ -7,6 +7,8 @@ import { main } from '../../src/cli.js';
 const testDir = '/tmp/cia-skills-integration-test';
 const skillsDir = join(testDir, '.cia', 'skills');
 const testSkillDir = join(skillsDir, 'test-integration-skill');
+const STATUS_BUDGET_MS = 5000;
+const BULK_DISCOVERY_BUDGET_MS = 3000;
 
 // Store original cwd function
 const originalCwd = process.cwd;
@@ -122,6 +124,34 @@ describe('Skills System Integration', () => {
       // Should handle missing skill gracefully and continue
       expect(exitCode).not.toBe(0); // Expected to fail due to mock provider, not skill
     });
+
+    it('supports skill discovery before run command compatibility path', async () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const listExitCode = await main(['skills', 'list']);
+      const runExitCode = await main([
+        'run',
+        '--skill',
+        'test-integration-skill',
+        '--provider',
+        'mock-for-test',
+        'Test prompt',
+      ]);
+
+      const output = [...logSpy.mock.calls, ...errorSpy.mock.calls]
+        .map(call => String(call[0]))
+        .join('\n');
+
+      expect(listExitCode).toBe(0);
+      expect(typeof runExitCode).toBe('number');
+      expect(
+        output.includes('Invalid provider: mock-for-test') || output.includes('Configuration error')
+      ).toBe(true);
+
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
+    });
   });
 
   describe('Skills Discovery', () => {
@@ -198,7 +228,8 @@ Malformed skill content.`;
       const duration = endTime - startTime;
 
       expect(exitCode).toBe(0);
-      expect(duration).toBeLessThan(5000); // Should complete within 5 seconds
+      // Keep budget tolerant for shared CI hosts while still detecting regressions.
+      expect(duration).toBeLessThan(STATUS_BUDGET_MS);
     });
 
     it('should handle large number of skill directories', async () => {
@@ -229,7 +260,8 @@ Test skill for performance testing.
       const endTime = Date.now();
 
       expect(exitCode).toBe(0);
-      expect(endTime - startTime).toBeLessThan(3000); // Should handle multiple skills efficiently
+      // Budget includes CI variance for filesystem-heavy skill discovery runs.
+      expect(endTime - startTime).toBeLessThan(BULK_DISCOVERY_BUDGET_MS);
 
       // Cleanup
       createdDirs.forEach(dir => {

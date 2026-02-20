@@ -45,6 +45,10 @@ class MockProvider implements IAssistantChat {
     return 'mock-provider';
   }
 
+  async listModels(): Promise<string[]> {
+    return ['mock-model'];
+  }
+
   getCallCount(): number {
     return this.currentCall;
   }
@@ -167,6 +171,51 @@ describe('ReliableAssistantChat', () => {
 
       expect(chunks[0].content).toContain('Provider failed after 1 retry attempts');
       expect(mockProvider.getCallCount()).toBe(2); // Original + 1 retry = 2 total
+    });
+
+    it('should stop retries when a non-retryable error follows a transient error', async () => {
+      let callCount = 0;
+      const mixedFailureProvider: IAssistantChat = {
+        async *sendQuery(
+          _input: string | Message[],
+          _cwd: string,
+          _resumeSessionId?: string
+        ): AsyncGenerator<ChatChunk> {
+          callCount++;
+          if (callCount === 1) {
+            throw new Error('Network timeout');
+          }
+          if (callCount === 2) {
+            throw new Error('Authentication failed - 401 unauthorized');
+          }
+
+          yield { type: 'assistant', content: 'should not be reached' };
+        },
+        getType: () => 'mixed-failure-provider',
+        listModels: async () => ['test-model'],
+      };
+
+      const mixedReliableProvider = new ReliableAssistantChat(mixedFailureProvider, {
+        retries: 3,
+        'retry-backoff': false,
+        'retry-timeout': 1000,
+        'contract-validation': false,
+      });
+
+      const startTime = Date.now();
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of mixedReliableProvider.sendQuery('test prompt', '/tmp')) {
+        chunks.push(chunk);
+      }
+      const duration = Date.now() - startTime;
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].type).toBe('error');
+      expect(chunks[0].content).toContain(
+        "Provider 'reliable-mixed-failure-provider' reliability issue"
+      );
+      expect(callCount).toBe(2);
+      expect(duration).toBeLessThan(3000);
     });
   });
 

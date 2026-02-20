@@ -155,6 +155,14 @@ describe('providers contract', () => {
     const claudeResult = claudeChunks.find(chunk => chunk.type === 'result');
     const azureResult = azureChunks.find(chunk => chunk.type === 'result');
 
+    const codexTypes = new Set(codexChunks.map(chunk => chunk.type));
+    const claudeTypes = new Set(claudeChunks.map(chunk => chunk.type));
+    const azureTypes = new Set(azureChunks.map(chunk => chunk.type));
+
+    expect(codexTypes).toEqual(new Set(['assistant', 'tool', 'thinking', 'result']));
+    expect(claudeTypes).toEqual(new Set(['assistant', 'tool', 'result']));
+    expect(azureTypes).toEqual(new Set(['assistant', 'result']));
+
     expect(codexResult?.sessionId).toBeTruthy();
     expect(claudeResult?.sessionId).toBeTruthy();
     expect(azureResult?.sessionId).toBeTruthy();
@@ -247,6 +255,41 @@ describe('providers contract', () => {
 
     // Verify provider type is wrapped correctly
     expect(reliableCodex.getType()).toBe('reliable-codex');
+  });
+
+  it('reliability wrapper preserves contract with provider config path', async () => {
+    mockProviderSdks();
+    const { createAssistantChat } = await import('../src/providers/index.js');
+    const { ReliableAssistantChat } = await import('../src/providers/reliability.js');
+
+    const providerConfig = {
+      providers: {
+        azure: {
+          model: 'configured-azure-model',
+          resourceName: 'configured-resource',
+          apiKey: 'configured-api-key',
+        },
+      },
+    };
+
+    const azure = await createAssistantChat('azure', providerConfig as any);
+    const reliableAzure = new ReliableAssistantChat(azure, {
+      retries: 1,
+      'contract-validation': true,
+      'retry-backoff': false,
+      'retry-timeout': 1000,
+    });
+
+    const chunks = await collectChunks(reliableAzure.sendQuery('prompt', '/tmp'));
+
+    expect(chunks.length).toBeGreaterThan(0);
+    for (const chunk of chunks) {
+      expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
+    }
+
+    expect(chunks.some(chunk => chunk.type === 'assistant')).toBe(true);
+    expect(chunks.some(chunk => chunk.type === 'result' && !!chunk.sessionId)).toBe(true);
+    expect(reliableAzure.getType()).toBe('reliable-vercel-azure');
   });
 
   it('reliability wrapper with contract validation enabled catches violations', async () => {
