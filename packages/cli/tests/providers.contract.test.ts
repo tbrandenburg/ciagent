@@ -85,6 +85,16 @@ function mockProviderSdks(): void {
       });
     },
   }));
+
+  vi.mock('@ai-sdk/openai', () => ({
+    createOpenAI: (config: any) => {
+      return (model: string) => ({
+        providerId: 'openai',
+        modelId: model,
+        config,
+      });
+    },
+  }));
 }
 
 async function collectChunks(generator: AsyncGenerator<ChatChunk>): Promise<ChatChunk[]> {
@@ -368,6 +378,29 @@ describe('providers contract', () => {
       for (const chunk of azureChunks) {
         expect(ALLOWED_CHUNK_TYPES.has(chunk.type)).toBe(true);
       }
+    });
+
+    it('Vercel provider receives proxy-aware fetch when network config is active', async () => {
+      mockProviderSdks();
+      const { VercelProviderFactory } = await import('../src/providers/vercel-factory.js');
+
+      const model = (await VercelProviderFactory.createProvider(
+        'azure',
+        {
+          model: 'custom-model',
+          resourceName: 'resource',
+          apiKey: 'api-key',
+        },
+        {
+          'https-proxy': 'http://corp-proxy:8443',
+          'ca-bundle-path': '/etc/ssl/corp-ca.pem',
+          'no-proxy': ['localhost'],
+        }
+      )) as any;
+
+      expect(model.config).toBeDefined();
+      expect(typeof model.config.fetch).toBe('function');
+      expect(process.env.NODE_EXTRA_CA_CERTS).toBe('/etc/ssl/corp-ca.pem');
     });
   });
 });

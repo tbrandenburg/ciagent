@@ -204,6 +204,38 @@ export const CommonErrors = {
       'Configure authentication with "cia mcp auth" command'
     ),
 
+  proxyConfigurationInvalid: (details: string): CliError =>
+    createError(
+      ExitCode.AUTH_CONFIG,
+      'Proxy configuration is invalid',
+      details,
+      'Set HTTP_PROXY/HTTPS_PROXY to valid http(s) URLs and retry'
+    ),
+
+  proxyConnectionFailed: (target: string, reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `Proxy connection failed: ${target}`,
+      reason,
+      'Verify proxy reachability and credentials, then retry with --log-level DEBUG'
+    ),
+
+  caBundleInvalid: (path: string): CliError =>
+    createError(
+      ExitCode.AUTH_CONFIG,
+      'CA bundle configuration is invalid',
+      `Invalid CA bundle path: ${path}`,
+      'Set NODE_EXTRA_CA_CERTS to a readable PEM bundle path'
+    ),
+
+  certificateValidationFailed: (target: string, reason: string): CliError =>
+    createError(
+      ExitCode.LLM_EXECUTION,
+      `Certificate validation failed: ${target}`,
+      reason,
+      'Check corporate CA trust chain and NODE_EXTRA_CA_CERTS configuration'
+    ),
+
   // Skills-related errors
   skillsDiscoveryFailed: (reason: string): CliError =>
     createError(

@@ -27,6 +27,12 @@ describe('Configuration Loader', () => {
     if (existsSync(repoConfigDir)) {
       rmSync(repoConfigDir, { recursive: true, force: true });
     }
+
+    delete process.env.HTTP_PROXY;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.NO_PROXY;
+    delete process.env.NODE_EXTRA_CA_CERTS;
+    delete process.env.NODE_USE_ENV_PROXY;
   });
 
   afterEach(() => {
@@ -43,6 +49,12 @@ describe('Configuration Loader', () => {
     if (existsSync(repoConfigDir)) {
       rmSync(repoConfigDir, { recursive: true, force: true });
     }
+
+    delete process.env.HTTP_PROXY;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.NO_PROXY;
+    delete process.env.NODE_EXTRA_CA_CERTS;
+    delete process.env.NODE_USE_ENV_PROXY;
   });
 
   describe('Configuration Hierarchy', () => {
@@ -105,6 +117,62 @@ describe('Configuration Loader', () => {
       } else {
         delete process.env.CIA_MODEL;
       }
+    });
+
+    it('should normalize enterprise network environment variables', () => {
+      process.env.HTTP_PROXY = 'http://corp-proxy.internal:8080';
+      process.env.HTTPS_PROXY = 'http://corp-proxy.internal:8443';
+      process.env.NO_PROXY = ' localhost, 127.0.0.1, internal.local ';
+      process.env.NODE_EXTRA_CA_CERTS = ' /etc/ssl/corp-ca.pem ';
+      process.env.NODE_USE_ENV_PROXY = 'true';
+
+      const config = loadConfig();
+
+      expect(config.network).toEqual({
+        'http-proxy': 'http://corp-proxy.internal:8080',
+        'https-proxy': 'http://corp-proxy.internal:8443',
+        'no-proxy': ['localhost', '127.0.0.1', 'internal.local'],
+        'ca-bundle-path': '/etc/ssl/corp-ca.pem',
+        'use-env-proxy': true,
+      });
+    });
+
+    it('should preserve precedence for network config (env < user < repo < cli)', () => {
+      process.env.HTTP_PROXY = 'http://env-proxy:8080';
+
+      mkdirSync(testUserConfigDir, { recursive: true });
+      writeFileSync(
+        testUserConfigFile,
+        JSON.stringify({
+          network: {
+            'http-proxy': 'http://user-proxy:8080',
+            'ca-bundle-path': '/user/ca.pem',
+          },
+        })
+      );
+
+      mkdirSync(repoConfigDir, { recursive: true });
+      writeFileSync(
+        repoConfigFile,
+        JSON.stringify({
+          network: {
+            'http-proxy': 'http://repo-proxy:8080',
+            'ca-bundle-path': '/repo/ca.pem',
+          },
+        })
+      );
+
+      const config = loadConfig({
+        network: {
+          'http-proxy': 'http://cli-proxy:8080',
+          'ca-bundle-path': '/cli/ca.pem',
+        },
+      });
+
+      expect(config.network).toEqual({
+        'http-proxy': 'http://cli-proxy:8080',
+        'ca-bundle-path': '/cli/ca.pem',
+      });
     });
   });
 

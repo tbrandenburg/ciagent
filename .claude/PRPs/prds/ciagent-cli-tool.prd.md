@@ -227,7 +227,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | 7.4 | Enhanced orchestration | Integrate MCP and Skills into existing orchestrator, preserve IAssistantClient | complete | - | 7.2, 7.3 | .claude/PRPs/plans/enhanced-orchestration.plan.md |
 | 7.5 | CIA CLI enhancement | MCP and Skills management commands, enhanced status reporting | complete | with 8 | 7.4 | .claude/PRPs/plans/cia-cli-enhancement.plan.md |
 | 7.6 | CIA testing & integration | Comprehensive testing, performance validation, compatibility assurance | complete | - | 7.5 | .claude/PRPs/plans/cia-testing-integration.plan.md |
-| 8 | Enterprise network support | HTTP proxy and custom CA bundle support | pending | with 6, 7.1, 7.5 | 3c, 4 | - |
+| 8 | Enterprise network support | HTTP proxy and custom CA bundle support | complete | with 6, 7.1, 7.5 | 3c, 4 | .claude/PRPs/plans/enterprise-network-support.plan.md |
 | 9 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | pending | with 8 | 7.6 | - |
 | 10 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | pending | - | 9 | - |
 | 11 | Packaging & docs | Bun binary, Docker image, README with examples | pending | - | 10 | - |

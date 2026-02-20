@@ -28,6 +28,13 @@ export interface CIAConfig {
   org?: string;
   'log-level'?: string;
   skill?: string;
+  network?: {
+    'http-proxy'?: string;
+    'https-proxy'?: string;
+    'no-proxy'?: string[];
+    'ca-bundle-path'?: string;
+    'use-env-proxy'?: boolean;
+  };
   providers?: {
     [providerName: string]: {
       model?: string;
@@ -119,6 +126,8 @@ function loadFromEnv(): Partial<CIAConfig> {
     };
   }
 
+  const network = loadNetworkConfigFromEnv();
+
   return {
     provider: process.env.CIA_PROVIDER,
     model: process.env.CIA_MODEL,
@@ -135,9 +144,68 @@ function loadFromEnv(): Partial<CIAConfig> {
       ? parseInt(process.env.CIA_RETRY_TIMEOUT, 10)
       : undefined,
     'contract-validation': process.env.CIA_CONTRACT_VALIDATION === 'true',
+    ...(network && { network }),
     // Only include providers if at least one was configured
     ...(Object.keys(providers).length > 0 && { providers }),
   };
+}
+
+function loadNetworkConfigFromEnv(): CIAConfig['network'] | undefined {
+  const httpProxy = readNonEmptyEnv('HTTP_PROXY');
+  const httpsProxy = readNonEmptyEnv('HTTPS_PROXY');
+  const noProxy = parseNoProxy(process.env.NO_PROXY);
+  const caBundlePath = readNonEmptyEnv('NODE_EXTRA_CA_CERTS');
+  const useEnvProxy = parseBooleanEnv(process.env.NODE_USE_ENV_PROXY);
+
+  if (!httpProxy && !httpsProxy && !noProxy && !caBundlePath && useEnvProxy === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...(httpProxy && { 'http-proxy': httpProxy }),
+    ...(httpsProxy && { 'https-proxy': httpsProxy }),
+    ...(noProxy && { 'no-proxy': noProxy }),
+    ...(caBundlePath && { 'ca-bundle-path': caBundlePath }),
+    ...(useEnvProxy !== undefined && { 'use-env-proxy': useEnvProxy }),
+  };
+}
+
+function readNonEmptyEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (!value) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function parseNoProxy(value: string | undefined): string[] | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = value
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(entry => entry.length > 0);
+
+  return parsed.length > 0 ? parsed : undefined;
+}
+
+function parseBooleanEnv(value: string | undefined): boolean | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '1' || normalized === 'true') {
+    return true;
+  }
+  if (normalized === '0' || normalized === 'false') {
+    return false;
+  }
+  return undefined;
 }
 
 function loadDotEnvFile(filePath: string): void {

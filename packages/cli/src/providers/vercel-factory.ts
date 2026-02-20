@@ -1,4 +1,63 @@
 import type { LanguageModel } from 'ai';
+import type { CIAConfig } from '../shared/config/loader.js';
+
+type FetchFunction = typeof fetch;
+
+function hasNetworkOverrides(network?: CIAConfig['network']): boolean {
+  return Boolean(
+    network?.['http-proxy'] ||
+    network?.['https-proxy'] ||
+    network?.['no-proxy']?.length ||
+    network?.['ca-bundle-path']
+  );
+}
+
+async function createNetworkFetch(
+  network?: CIAConfig['network']
+): Promise<FetchFunction | undefined> {
+  if (!network || !hasNetworkOverrides(network)) {
+    return undefined;
+  }
+
+  if (network['ca-bundle-path']) {
+    process.env.NODE_EXTRA_CA_CERTS = network['ca-bundle-path'];
+  }
+
+  const httpProxy = network['http-proxy'];
+  const httpsProxy = network['https-proxy'];
+  const noProxy = network['no-proxy']?.join(',');
+
+  if (typeof Bun !== 'undefined') {
+    const bunProxy = httpsProxy || httpProxy;
+    if (!bunProxy) {
+      return fetch;
+    }
+
+    return (url: string | URL | Request, init?: RequestInit) =>
+      fetch(
+        url as any,
+        {
+          ...init,
+          proxy: bunProxy,
+        } as RequestInit
+      );
+  }
+
+  if (httpProxy || httpsProxy || noProxy) {
+    process.env.NODE_USE_ENV_PROXY = network['use-env-proxy'] === false ? '0' : '1';
+    if (httpProxy) {
+      process.env.HTTP_PROXY = httpProxy;
+    }
+    if (httpsProxy) {
+      process.env.HTTPS_PROXY = httpsProxy;
+    }
+    if (noProxy) {
+      process.env.NO_PROXY = noProxy;
+    }
+  }
+
+  return fetch;
+}
 
 /**
  * Provider configuration for Vercel AI SDK providers
@@ -30,7 +89,13 @@ export class VercelProviderFactory {
    * @param config - Provider-specific configuration
    * @returns LanguageModel instance for the specified provider
    */
-  static async createProvider(type: string, config?: VercelProviderConfig): Promise<LanguageModel> {
+  static async createProvider(
+    type: string,
+    config?: VercelProviderConfig,
+    network?: CIAConfig['network']
+  ): Promise<LanguageModel> {
+    const networkFetch = await createNetworkFetch(network);
+
     switch (type) {
       case 'azure': {
         const azureModule = await import('@ai-sdk/azure');
@@ -41,9 +106,17 @@ export class VercelProviderFactory {
             resourceName: config.resourceName,
             apiKey: config.apiKey,
             baseURL: config.baseUrl,
+            ...(networkFetch && { fetch: networkFetch }),
           });
           return azureProvider(config?.model || 'gpt-4o');
         } else {
+          if (networkFetch) {
+            const azureProvider = azureModule.createAzure({
+              ...(networkFetch && { fetch: networkFetch }),
+            });
+            return azureProvider(config?.model || 'gpt-4o');
+          }
+
           // Default configuration using environment variables
           return azureModule.azure(config?.model || 'gpt-4o');
         }
@@ -65,6 +138,7 @@ export class VercelProviderFactory {
             apiKey: config.apiKey || defaultConfig.apiKey,
             organization: config.organization,
             baseURL: config.baseUrl || defaultConfig.baseURL,
+            ...(networkFetch && { fetch: networkFetch }),
           });
           return openaiProvider(config?.model || defaultConfig.model);
         } else {
@@ -72,6 +146,7 @@ export class VercelProviderFactory {
           const openaiProvider = openaiModule.createOpenAI({
             apiKey: defaultConfig.apiKey,
             baseURL: defaultConfig.baseURL,
+            ...(networkFetch && { fetch: networkFetch }),
           });
           return openaiProvider(defaultConfig.model);
         }

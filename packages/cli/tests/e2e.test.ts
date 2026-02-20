@@ -81,6 +81,9 @@ describe('CLI E2E (Smoke)', () => {
     const result = await runCLI(['--help']);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('USAGE:');
+    expect(result.stdout).toContain('ENTERPRISE NETWORKING:');
+    expect(result.stdout).toContain('HTTP_PROXY');
+    expect(result.stdout).toContain('NODE_EXTRA_CA_CERTS');
   });
 
   it('enforces strict schema requirement', async () => {

@@ -63,6 +63,14 @@ export function printHelpText(): void {
   console.log('DEBUGGING:');
   console.log('  --log-level          Log level (DEBUG|INFO|WARN|ERROR) [default: INFO]');
   console.log('');
+  console.log('ENTERPRISE NETWORKING:');
+  console.log('  HTTP_PROXY           Proxy for outbound HTTP requests');
+  console.log('  HTTPS_PROXY          Proxy for outbound HTTPS requests');
+  console.log('  NO_PROXY             Comma-separated hosts that bypass proxy');
+  console.log('  NODE_EXTRA_CA_CERTS  Path to custom corporate CA bundle (PEM)');
+  console.log('  NODE_USE_ENV_PROXY   Force Node env proxy behavior (1|0)');
+  console.log('  Tip: use --log-level DEBUG for transport diagnostics');
+  console.log('');
   console.log('EXAMPLES:');
   console.log('  # Basic usage with Codex');
   console.log('  cia run "Explain how CI/CD works" --provider codex');

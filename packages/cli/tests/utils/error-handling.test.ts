@@ -9,7 +9,7 @@ import {
 } from '../../src/shared/errors/error-handling';
 
 describe('Error Handling', () => {
-  let consoleErrorSpy: ReturnType<typeof spyOn>;
+  let consoleErrorSpy: any;
 
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -22,7 +22,7 @@ describe('Error Handling', () => {
   describe('createError', () => {
     it('creates basic error with code and message', () => {
       const error = createError(ExitCode.INPUT_VALIDATION, 'Test message');
-      
+
       expect(error).toEqual({
         code: ExitCode.INPUT_VALIDATION,
         message: 'Test message',
@@ -36,7 +36,7 @@ describe('Error Handling', () => {
         'Test details',
         'Test suggestion'
       );
-      
+
       expect(error).toEqual({
         code: ExitCode.AUTH_CONFIG,
         message: 'Test message',
@@ -52,9 +52,9 @@ describe('Error Handling', () => {
         code: ExitCode.INPUT_VALIDATION,
         message: 'Test error',
       };
-      
+
       printError(error);
-      
+
       expect(consoleErrorSpy).toHaveBeenCalledWith('\n❌ Error: Test error');
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         '   Exit code: 1 (Invalid command line arguments or options)'
@@ -68,22 +68,20 @@ describe('Error Handling', () => {
         details: 'Missing required field',
         suggestion: 'Add the field to your schema',
       };
-      
+
       printError(error);
-      
+
       expect(consoleErrorSpy).toHaveBeenCalledWith('\n❌ Error: Schema failed');
       expect(consoleErrorSpy).toHaveBeenCalledWith('   Missing required field');
       expect(consoleErrorSpy).toHaveBeenCalledWith('💡 Suggestion: Add the field to your schema');
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '   Exit code: 2 (Schema validation failed)'
-      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith('   Exit code: 2 (Schema validation failed)');
     });
   });
 
   describe('CommonErrors', () => {
     it('creates invalidArgument error', () => {
       const error = CommonErrors.invalidArgument('--invalid', 'string value');
-      
+
       expect(error.code).toBe(ExitCode.INPUT_VALIDATION);
       expect(error.message).toBe('Invalid argument: --invalid');
       expect(error.details).toBe('Expected: string value');
@@ -92,7 +90,7 @@ describe('Error Handling', () => {
 
     it('creates missingCommand error', () => {
       const error = CommonErrors.missingCommand();
-      
+
       expect(error.code).toBe(ExitCode.INPUT_VALIDATION);
       expect(error.message).toBe('No command specified');
       expect(error.suggestion).toBe('Try: cia run \"your prompt here\"');
@@ -100,9 +98,29 @@ describe('Error Handling', () => {
 
     it('creates timeout error', () => {
       const error = CommonErrors.timeout(30);
-      
+
       expect(error.code).toBe(ExitCode.TIMEOUT);
       expect(error.message).toBe('Operation timed out after 30s');
+    });
+
+    it('creates enterprise proxy/certificate errors with expected exit codes', () => {
+      const proxyConfig = CommonErrors.proxyConfigurationInvalid('Malformed HTTPS_PROXY URL');
+      const proxyConnection = CommonErrors.proxyConnectionFailed(
+        'azure-openai',
+        'proxy authentication required'
+      );
+      const caInvalid = CommonErrors.caBundleInvalid('/etc/ssl/missing.pem');
+      const certFailed = CommonErrors.certificateValidationFailed(
+        'openai-endpoint',
+        'unable to verify first certificate'
+      );
+
+      expect(proxyConfig.code).toBe(ExitCode.AUTH_CONFIG);
+      expect(proxyConnection.code).toBe(ExitCode.LLM_EXECUTION);
+      expect(caInvalid.code).toBe(ExitCode.AUTH_CONFIG);
+      expect(certFailed.code).toBe(ExitCode.LLM_EXECUTION);
+      expect(proxyConnection.message).toContain('Proxy connection failed');
+      expect(certFailed.message).toContain('Certificate validation failed');
     });
   });
 
@@ -110,7 +128,7 @@ describe('Error Handling', () => {
     it('handles Error objects', () => {
       const originalError = new Error('Something went wrong');
       const cliError = handleUnexpectedError(originalError);
-      
+
       expect(cliError.code).toBe(ExitCode.LLM_EXECUTION);
       expect(cliError.message).toBe('Unexpected error occurred');
       expect(cliError.details).toBe('Something went wrong');
@@ -118,7 +136,7 @@ describe('Error Handling', () => {
 
     it('handles non-Error values', () => {
       const cliError = handleUnexpectedError('String error');
-      
+
       expect(cliError.code).toBe(ExitCode.LLM_EXECUTION);
       expect(cliError.details).toBe('String error');
     });
