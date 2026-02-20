@@ -22,6 +22,12 @@ export class ReliableAssistantChat implements IAssistantChat {
     const useBackoff = this.config['retry-backoff'] ?? true;
     const retryTimeout = this.config['retry-timeout'] ?? 30000;
     const contractValidation = this.config['contract-validation'] ?? false;
+    const perAttemptMinDelay = useBackoff ? 1000 : 500;
+    const retryWindowMs = Math.max(retryTimeout, (maxRetries + 1) * perAttemptMinDelay);
+    const retryWindowController = new AbortController();
+    const retryWindowTimeout = setTimeout(() => {
+      retryWindowController.abort(new Error(`Retry window timed out after ${retryWindowMs}ms`));
+    }, retryWindowMs);
 
     let isNonRetryableError = false;
     let finalErrorMessage = '';
@@ -29,6 +35,14 @@ export class ReliableAssistantChat implements IAssistantChat {
     try {
       const successfulChunks = await pRetry(
         async () => {
+          if (retryWindowController.signal.aborted) {
+            const reason = retryWindowController.signal.reason;
+            const reasonMessage = reason instanceof Error ? reason.message : String(reason);
+            isNonRetryableError = true;
+            finalErrorMessage = reasonMessage;
+            throw new AbortError(reasonMessage);
+          }
+
           const chunks: ChatChunk[] = [];
           let hasError = false;
           let errorMessage = '';
@@ -102,6 +116,8 @@ export class ReliableAssistantChat implements IAssistantChat {
           factor: useBackoff ? 2 : 1,
           minTimeout: useBackoff ? 1000 : 500,
           maxTimeout: retryTimeout,
+          maxRetryTime: retryWindowMs,
+          signal: retryWindowController.signal,
           randomize: useBackoff,
           onFailedAttempt: () => {
             // Optional: log retry attempts (can be enabled for debugging)
@@ -127,6 +143,8 @@ export class ReliableAssistantChat implements IAssistantChat {
         );
         yield { type: 'error', content: retryError.message };
       }
+    } finally {
+      clearTimeout(retryWindowTimeout);
     }
   }
 

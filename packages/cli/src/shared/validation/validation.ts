@@ -115,6 +115,12 @@ export function validateConfig(config: CIAConfig): ValidationResult {
     }
   }
 
+  if (config['retry-timeout'] !== undefined) {
+    if (isNaN(config['retry-timeout']) || config['retry-timeout'] <= 0) {
+      errors.push(`Invalid retry-timeout: ${config['retry-timeout']}. Must be a positive number.`);
+    }
+  }
+
   if (config.network) {
     errors.push(...validateNetworkConfig(config.network));
   }

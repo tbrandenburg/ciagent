@@ -9,6 +9,9 @@ import { processMultipleContextSources } from '../utils/context-processors.js';
 import { SkillsManager } from '../skills/index.js';
 import { mcpProvider } from '../providers/mcp.js';
 
+const CHUNK_STALL_TIMEOUT_MS = 5000;
+const MAX_ASSISTANT_OUTPUT_BYTES = 1024 * 1024;
+
 export async function runCommand(args: string[], config: CIAConfig): Promise<number> {
   const hasPrompt = args.length > 0 && args.join(' ').trim().length > 0;
   const hasInputFile = Boolean(config['input-file']);
@@ -50,6 +53,7 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     let printedAssistantOutput = false;
     let providerError: string | null = null;
     const assistantChunks: string[] = [];
+    let assistantOutputBytes = 0;
 
     // Emit status messages for available capabilities (non-blocking)
     try {
@@ -66,13 +70,37 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
       throw new Error(`Operation timed out after ${timeoutSeconds} seconds`);
     }
 
-    for await (const chunk of assistant.sendQuery(enhancedPrompt, process.cwd())) {
-      // Check for abort signal during iteration
-      if (abortController.signal.aborted) {
+    const chunkIterator = assistant
+      .sendQuery(enhancedPrompt, process.cwd())
+      [Symbol.asyncIterator]();
+    const hardDeadline = Date.now() + timeoutMs;
+
+    while (true) {
+      const remainingMs = hardDeadline - Date.now();
+      if (remainingMs <= 0 || abortController.signal.aborted) {
         throw new Error(`Operation timed out after ${timeoutSeconds} seconds`);
       }
 
+      const nextChunk = await withTimeout(
+        chunkIterator.next(),
+        Math.min(remainingMs, CHUNK_STALL_TIMEOUT_MS),
+        `Operation timed out after ${Math.min(remainingMs, CHUNK_STALL_TIMEOUT_MS)}ms while waiting for next response chunk`
+      );
+
+      if (nextChunk.done) {
+        break;
+      }
+
+      const chunk = nextChunk.value;
+
       if (chunk.type === 'assistant' && chunk.content) {
+        assistantOutputBytes += Buffer.byteLength(chunk.content, 'utf8');
+        if (assistantOutputBytes > MAX_ASSISTANT_OUTPUT_BYTES) {
+          throw new Error(
+            `Assistant output exceeded maximum size of ${MAX_ASSISTANT_OUTPUT_BYTES} bytes`
+          );
+        }
+
         assistantChunks.push(chunk.content);
         if (config.format !== 'json') {
           console.log(chunk.content);
@@ -161,6 +189,22 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     printError(cliError);
     return cliError.code;
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timeout: NodeJS.Timeout;
+
+  return Promise.race([
+    promise.then(result => {
+      clearTimeout(timeout);
+      return result;
+    }),
+    new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        reject(new Error(message));
+      }, ms);
+    }),
+  ]);
 }
 
 function parseStructuredResponse(responseText: string): unknown {
