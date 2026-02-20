@@ -27,9 +27,6 @@ lint: ## Run linting
 test: ## Run all tests
 	npm run test
 
-test-ci: ## Run tests in CI mode (no watch)
-	npx vitest --run
-
 test-coverage: ## Run tests with coverage report
 	npm run test:coverage
 
