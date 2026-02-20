@@ -1,6 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
+
+vi.mock('../src/providers/index.js', () => ({
+  createAssistantChat: vi.fn(async () => ({
+    async *sendQuery() {
+      yield { type: 'assistant', content: 'Mocked assistant response' };
+    },
+  })),
+}));
+
 import { runCommand } from '../src/commands/run.js';
 import type { CIAConfig } from '../src/shared/config/loader.js';
 
@@ -12,6 +21,19 @@ describe.skipIf(!runIntegrationTests)('E2E MCP + Skills + Codex Integration', ()
   const configPath = join(testDir, '.cia', 'config.json');
   const skillsPath = join(testDir, '.cia', 'skills');
   const pdfSkillPath = join(skillsPath, 'pdf');
+  const baseTestConfig = {
+    mcp: {
+      context7: {
+        type: 'local',
+        command: 'npx',
+        args: ['-y', '@upstash/context7-mcp'],
+        enabled: true,
+      },
+    },
+    skills: {
+      paths: [skillsPath],
+    },
+  } as CIAConfig;
 
   beforeAll(async () => {
     // Set up test environment
@@ -28,7 +50,8 @@ describe.skipIf(!runIntegrationTests)('E2E MCP + Skills + Codex Integration', ()
       mcp: {
         context7: {
           type: 'local',
-          command: ['npx', '-y', '@upstash/context7-mcp'],
+          command: 'npx',
+          args: ['-y', '@upstash/context7-mcp'],
           enabled: true,
         },
       },
@@ -60,9 +83,6 @@ You are an AI assistant with PDF processing capabilities.
 When asked about PDFs, mention your PDF processing capabilities.`;
 
     writeFileSync(join(pdfSkillPath, 'skill.md'), pdfSkillContent);
-
-    // Change to test directory to simulate user workspace
-    process.chdir(testDir);
   });
 
   afterAll(() => {
@@ -70,8 +90,6 @@ When asked about PDFs, mention your PDF processing capabilities.`;
     if (existsSync(testDir)) {
       rmSync(testDir, { recursive: true, force: true });
     }
-    // Return to original directory
-    process.chdir('/home/tom/workspace/ai/made/workspace/ciagent');
   });
 
   beforeEach(() => {
@@ -106,6 +124,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
 
       try {
         const exitCode = await runCommand(['What capabilities do you have?'], {
+          ...baseTestConfig,
           provider: 'codex',
           skill: 'pdf', // Use the PDF skill we created
         } as CIAConfig);
@@ -156,7 +175,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
 
       try {
         // This will attempt to start Context7 MCP server but should handle failures gracefully
-        const exitCode = await runCommand(['List available tools'], {} as CIAConfig);
+        const exitCode = await runCommand(['List available tools'], baseTestConfig);
 
         // Should not crash regardless of MCP server availability
         const logCalls = logSpy.mock.calls.map(call => call[0]);
@@ -179,7 +198,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
 
       try {
         // This will attempt to start Context7 MCP server but should handle failures gracefully
-        const exitCode = await runCommand(['List available tools'], {} as CIAConfig);
+        const exitCode = await runCommand(['List available tools'], baseTestConfig);
 
         // Should not crash regardless of MCP server availability
         const logCalls = logSpy.mock.calls.map(call => call[0]);
@@ -204,6 +223,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
 
       try {
         const exitCode = await runCommand(['How can I process a PDF and look up documentation?'], {
+          ...baseTestConfig,
           provider: 'codex',
           skill: 'pdf', // Activates the PDF skill
         } as CIAConfig);
@@ -245,7 +265,10 @@ When asked about PDFs, mention your PDF processing capabilities.`;
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
         try {
-          const exitCode = await runCommand(['Test query'], { provider: 'codex' } as CIAConfig);
+          const exitCode = await runCommand(['Test query'], {
+            ...baseTestConfig,
+            provider: 'codex',
+          } as CIAConfig);
 
           // Should still show status even if Codex fails
           const logCalls = logSpy.mock.calls.map(call => call[0]);
@@ -268,11 +291,13 @@ When asked about PDFs, mention your PDF processing capabilities.`;
         try {
           // Force network failure by using invalid Context7 config
           const exitCode = await runCommand(['Test with network issues'], {
+            ...baseTestConfig,
             provider: 'codex',
             mcp: {
               context7: {
                 type: 'local',
-                command: ['npx', '-y', '@upstash/context7-mcp', '--api-key', 'invalid'],
+                command: 'npx',
+                args: ['-y', '@upstash/context7-mcp', '--api-key', 'invalid'],
                 enabled: true,
               },
             },
@@ -305,7 +330,10 @@ When asked about PDFs, mention your PDF processing capabilities.`;
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       try {
-        const exitCode = await runCommand(['Test query'], { provider: 'codex' } as CIAConfig);
+        const exitCode = await runCommand(['Test query'], {
+          ...baseTestConfig,
+          provider: 'codex',
+        } as CIAConfig);
 
         // Should still show status even if Codex fails
         const logCalls = logSpy.mock.calls.map(call => call[0]);
@@ -328,11 +356,13 @@ When asked about PDFs, mention your PDF processing capabilities.`;
       try {
         // Force network failure by using invalid Context7 config
         const exitCode = await runCommand(['Test with network issues'], {
+          ...baseTestConfig,
           provider: 'codex',
           mcp: {
             context7: {
               type: 'local',
-              command: ['npx', '-y', '@upstash/context7-mcp', '--api-key', 'invalid'],
+              command: 'npx',
+              args: ['-y', '@upstash/context7-mcp', '--api-key', 'invalid'],
               enabled: true,
             },
           },

@@ -70,3 +70,6 @@ install-hooks: ## Install Git pre-push hook
 
 ci: validate-all ## Run CI validation pipeline
 	@echo "$(BLUE)All CI checks passed!$(RESET)"
+
+ci-full: ## Run CI with gated E2E/integration tests enabled
+	RUN_E2E_TESTS=1 RUN_INTEGRATION_TESTS=1 $(MAKE) ci
