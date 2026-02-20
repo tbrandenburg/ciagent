@@ -100,6 +100,45 @@ describe('Input Validation', () => {
         'Invalid log-level: INVALID. Must be one of: DEBUG, INFO, WARN, ERROR.'
       );
     });
+
+    it('should validate normalized network config', () => {
+      const config: CIAConfig = {
+        network: {
+          'http-proxy': 'http://proxy.internal:8080',
+          'https-proxy': 'https://proxy.internal:8443',
+          'no-proxy': ['localhost', '.corp.internal'],
+          'ca-bundle-path': '/etc/ssl/corp-ca.pem',
+          'use-env-proxy': true,
+        },
+      };
+
+      const result = validateConfig(config);
+      expect(result.isValid).toBe(true);
+    });
+
+    it('should reject malformed network proxy values', () => {
+      const config: CIAConfig = {
+        network: {
+          'http-proxy': 'not-a-url',
+        },
+      };
+
+      const result = validateConfig(config);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Invalid network.http-proxy: must be a valid URL.');
+    });
+
+    it('should reject invalid network CA bundle format', () => {
+      const config: CIAConfig = {
+        network: {
+          'ca-bundle-path': '   ',
+        },
+      };
+
+      const result = validateConfig(config);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Invalid network.ca-bundle-path: value cannot be empty.');
+    });
   });
 
   describe('validateProvider', () => {

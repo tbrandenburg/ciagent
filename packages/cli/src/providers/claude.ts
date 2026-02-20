@@ -1,4 +1,5 @@
 import { type ChatChunk, type IAssistantChat, type Message } from './types.js';
+import type { CIAConfig } from '../shared/config/loader.js';
 
 interface ProviderConfig {
   model?: string;
@@ -21,7 +22,7 @@ interface ClaudeQueryMessage {
   session_id?: string;
 }
 
-function buildSubprocessEnv(): Record<string, string | undefined> {
+function buildSubprocessEnv(network?: CIAConfig['network']): Record<string, string | undefined> {
   const globalAuthSetting = process.env.CLAUDE_USE_GLOBAL_AUTH?.toLowerCase();
 
   const hasExplicitTokens = Boolean(
@@ -42,10 +43,37 @@ function buildSubprocessEnv(): Record<string, string | undefined> {
   if (useGlobalAuth) {
     const { CLAUDE_CODE_OAUTH_TOKEN, CLAUDE_API_KEY, ANTHROPIC_API_KEY, ...envWithoutAuth } =
       process.env;
-    return envWithoutAuth;
+    return applyNetworkEnv(envWithoutAuth, network);
   }
 
-  return { ...process.env };
+  return applyNetworkEnv({ ...process.env }, network);
+}
+
+function applyNetworkEnv(
+  baseEnv: Record<string, string | undefined>,
+  network?: CIAConfig['network']
+): Record<string, string | undefined> {
+  if (!network) {
+    return baseEnv;
+  }
+
+  if (network['http-proxy']) {
+    baseEnv.HTTP_PROXY = network['http-proxy'];
+  }
+  if (network['https-proxy']) {
+    baseEnv.HTTPS_PROXY = network['https-proxy'];
+  }
+  if (network['no-proxy']) {
+    baseEnv.NO_PROXY = network['no-proxy'].join(',');
+  }
+  if (network['ca-bundle-path']) {
+    baseEnv.NODE_EXTRA_CA_CERTS = network['ca-bundle-path'];
+  }
+  if (network['use-env-proxy'] !== undefined) {
+    baseEnv.NODE_USE_ENV_PROXY = network['use-env-proxy'] ? '1' : '0';
+  }
+
+  return baseEnv;
 }
 
 export class ClaudeAssistantChat implements IAssistantChat {
@@ -53,14 +81,20 @@ export class ClaudeAssistantChat implements IAssistantChat {
     prompt: string;
     options: Record<string, unknown>;
   }) => AsyncIterable<ClaudeQueryMessage>;
+  private readonly network?: CIAConfig['network'];
 
-  private constructor(query: ClaudeAssistantChat['query']) {
+  private constructor(query: ClaudeAssistantChat['query'], network?: CIAConfig['network']) {
     this.query = query;
+    this.network = network;
   }
 
-  static async create(config?: ProviderConfig): Promise<ClaudeAssistantChat> {
+  static async create(
+    config?: ProviderConfig,
+    network?: CIAConfig['network']
+  ): Promise<ClaudeAssistantChat> {
     // TODO: Use config.baseUrl, config.apiKey, config.timeout, config.model in future iterations
     void config; // Acknowledge config parameter for interface compatibility
+    void network;
 
     let claudeSdk: {
       query: (input: {
@@ -77,7 +111,7 @@ export class ClaudeAssistantChat implements IAssistantChat {
       );
     }
 
-    return new ClaudeAssistantChat(claudeSdk.query);
+    return new ClaudeAssistantChat(claudeSdk.query, network);
   }
 
   private resolvePrompt(input: string | Message[]): string {
@@ -95,7 +129,7 @@ export class ClaudeAssistantChat implements IAssistantChat {
     const prompt = this.resolvePrompt(input);
     const options: Record<string, unknown> = {
       cwd,
-      env: buildSubprocessEnv(),
+      env: buildSubprocessEnv(this.network),
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       systemPrompt: { type: 'preset', preset: 'claude_code' },

@@ -62,6 +62,42 @@ export class MCPManager {
     process.on('SIGTERM', () => this.cleanup());
   }
 
+  private isDebugEnabled(): boolean {
+    return process.env.CIA_LOG_LEVEL?.toUpperCase() === 'DEBUG';
+  }
+
+  private redactProxy(proxyUrl: string): string {
+    try {
+      const parsed = new URL(proxyUrl);
+      if (parsed.username || parsed.password) {
+        parsed.username = '***';
+        parsed.password = '***';
+      }
+      return parsed.toString();
+    } catch {
+      return '[invalid proxy url]';
+    }
+  }
+
+  private logRemoteNetworkContext(serverName: string): void {
+    if (!this.isDebugEnabled()) {
+      return;
+    }
+
+    const httpsProxy = process.env.HTTPS_PROXY;
+    const httpProxy = process.env.HTTP_PROXY;
+    const noProxy = process.env.NO_PROXY;
+    const caBundle = process.env.NODE_EXTRA_CA_CERTS;
+    const useEnvProxy = process.env.NODE_USE_ENV_PROXY;
+
+    const activeProxy = httpsProxy || httpProxy;
+    const proxyValue = activeProxy ? this.redactProxy(activeProxy) : 'none';
+
+    console.log(
+      `[MCP] Network diagnostics for ${serverName}: proxy=${proxyValue}, no_proxy=${noProxy || 'none'}, ca_bundle=${caBundle || 'none'}, node_use_env_proxy=${useEnvProxy || 'unset'}`
+    );
+  }
+
   /**
    * Initialize MCP manager with server configurations
    */
@@ -237,6 +273,8 @@ export class MCPManager {
     status: MCPServerStatus;
   }> {
     // For now, OAuth is not implemented in this basic version
+    this.logRemoteNetworkContext(name);
+
     const transports: Array<{
       name: string;
       transport: StreamableHTTPClientTransport | SSEClientTransport;

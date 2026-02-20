@@ -43,6 +43,9 @@ const TRANSIENT_MESSAGES = [
   'operation timed out',
   'failed to get tools',
   'mcp server not responding',
+  'proxy timeout',
+  'proxy connection failed',
+  'tunneling socket could not be established',
 ];
 
 /**

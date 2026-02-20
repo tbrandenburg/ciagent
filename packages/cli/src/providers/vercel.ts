@@ -2,6 +2,7 @@ import type { LanguageModel } from 'ai';
 import { streamText } from 'ai';
 import type { ChatChunk, IAssistantChat, Message } from './types.js';
 import { VercelProviderFactory, type VercelProviderConfig } from './vercel-factory.js';
+import type { CIAConfig } from '../shared/config/loader.js';
 
 /**
  * Generic Vercel AI SDK adapter implementing IAssistantChat interface
@@ -24,9 +25,10 @@ export class VercelAssistantChat implements IAssistantChat {
    */
   static async create(
     providerType: string,
-    config?: VercelProviderConfig
+    config?: VercelProviderConfig,
+    network?: CIAConfig['network']
   ): Promise<VercelAssistantChat> {
-    const provider = await VercelProviderFactory.createProvider(providerType, config);
+    const provider = await VercelProviderFactory.createProvider(providerType, config, network);
     return new VercelAssistantChat(provider, providerType);
   }
 

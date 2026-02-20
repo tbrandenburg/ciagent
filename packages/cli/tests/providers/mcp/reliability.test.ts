@@ -69,6 +69,25 @@ describe('MCP Reliability Layer', () => {
       expect(failFn).toHaveBeenCalledTimes(1);
     });
 
+    test('retries proxy timeout errors', async () => {
+      const failOnceFn = vi
+        .fn()
+        .mockRejectedValueOnce(new Error('proxy timeout while connecting'))
+        .mockResolvedValue('success');
+
+      const result = await retry(failOnceFn, { delay: 1, factor: 1 });
+
+      expect(result).toBe('success');
+      expect(failOnceFn).toHaveBeenCalledTimes(2);
+    });
+
+    test('does not retry certificate validation failures', async () => {
+      const failFn = vi.fn().mockRejectedValue(new Error('unable to verify first certificate'));
+
+      await expect(retry(failFn)).rejects.toThrow('unable to verify first certificate');
+      expect(failFn).toHaveBeenCalledTimes(1);
+    });
+
     test('respects custom retry condition', async () => {
       const customError = new Error('custom error');
       const failFn = vi.fn().mockRejectedValue(customError);

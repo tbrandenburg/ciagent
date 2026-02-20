@@ -115,10 +115,72 @@ export function validateConfig(config: CIAConfig): ValidationResult {
     }
   }
 
+  if (config.network) {
+    errors.push(...validateNetworkConfig(config.network));
+  }
+
   return {
     isValid: errors.length === 0,
     errors,
   };
+}
+
+function validateNetworkConfig(network: NonNullable<CIAConfig['network']>): string[] {
+  const errors: string[] = [];
+
+  const proxyEntries: Array<{ key: 'http-proxy' | 'https-proxy'; value: string | undefined }> = [
+    { key: 'http-proxy', value: network['http-proxy'] },
+    { key: 'https-proxy', value: network['https-proxy'] },
+  ];
+
+  for (const { key, value } of proxyEntries) {
+    if (!value) {
+      continue;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+      errors.push(`Invalid network.${key}: value cannot be empty.`);
+      continue;
+    }
+
+    try {
+      const parsed = new URL(trimmed);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        errors.push(`Invalid network.${key}: proxy URL must use http:// or https://.`);
+      }
+    } catch {
+      errors.push(`Invalid network.${key}: must be a valid URL.`);
+    }
+  }
+
+  if (network['no-proxy']) {
+    if (!Array.isArray(network['no-proxy'])) {
+      errors.push('Invalid network.no-proxy: must be an array of host patterns.');
+    } else {
+      for (const entry of network['no-proxy']) {
+        if (typeof entry !== 'string' || !entry.trim()) {
+          errors.push('Invalid network.no-proxy: entries must be non-empty strings.');
+          break;
+        }
+      }
+    }
+  }
+
+  if (network['ca-bundle-path'] !== undefined) {
+    const caBundlePath = network['ca-bundle-path'];
+    if (typeof caBundlePath !== 'string' || !caBundlePath.trim()) {
+      errors.push('Invalid network.ca-bundle-path: value cannot be empty.');
+    } else if (/\r|\n/.test(caBundlePath)) {
+      errors.push('Invalid network.ca-bundle-path: value must be a single path string.');
+    }
+  }
+
+  if (network['use-env-proxy'] !== undefined && typeof network['use-env-proxy'] !== 'boolean') {
+    errors.push('Invalid network.use-env-proxy: must be a boolean.');
+  }
+
+  return errors;
 }
 
 export function validateProvider(provider?: string): ValidationResult {

@@ -39,14 +39,15 @@ export async function createAssistantChat(
   // Load structured configuration with environment variable substitution
   const structuredConfig = config ? loadStructuredConfig(config) : undefined;
   const providerConfig = structuredConfig?.providers?.[provider];
+  const networkConfig = config?.network;
 
   // Check if it's a Vercel provider first (extensible pattern)
   if (VERCEL_PROVIDERS.includes(provider)) {
-    assistantChat = await VercelAssistantChat.create(provider, providerConfig);
+    assistantChat = await VercelAssistantChat.create(provider, providerConfig, networkConfig);
   } else if (provider === 'codex') {
     assistantChat = await CodexAssistantChat.create(providerConfig);
   } else if (provider === 'claude') {
-    assistantChat = await ClaudeAssistantChat.create(providerConfig);
+    assistantChat = await ClaudeAssistantChat.create(providerConfig, networkConfig);
   } else {
     const allSupportedProviders = [...VERCEL_PROVIDERS, 'codex', 'claude'];
     throw new Error(
