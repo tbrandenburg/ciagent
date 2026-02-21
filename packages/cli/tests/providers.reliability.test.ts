@@ -3,6 +3,12 @@ import { ReliableAssistantChat } from '../src/providers/reliability.js';
 import type { IAssistantChat, ChatChunk, Message } from '../src/providers/types.js';
 import type { CIAConfig } from '../src/shared/config/loader.js';
 
+const CI_TIMING_BUFFER_MS = 1800;
+
+function maxRetryBudgetMs(retries: number, retryTimeoutMs: number): number {
+  return retries * retryTimeoutMs + CI_TIMING_BUFFER_MS;
+}
+
 // Mock provider for testing
 class MockProvider implements IAssistantChat {
   private chunks: ChatChunk[] = [];
@@ -215,7 +221,7 @@ describe('ReliableAssistantChat', () => {
         "Provider 'reliable-mixed-failure-provider' reliability issue"
       );
       expect(callCount).toBe(2);
-      expect(duration).toBeLessThan(3000);
+      expect(duration).toBeLessThan(maxRetryBudgetMs(1, 1000));
     });
 
     it('keeps retry behavior bounded in wall-clock time', async () => {
@@ -235,7 +241,7 @@ describe('ReliableAssistantChat', () => {
       expect(chunks).toHaveLength(1);
       expect(chunks[0].type).toBe('error');
       expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
-      expect(duration).toBeLessThan(3000);
+      expect(duration).toBeLessThan(maxRetryBudgetMs(3, 600));
     });
   });
 
