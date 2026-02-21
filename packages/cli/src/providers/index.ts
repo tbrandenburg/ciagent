@@ -56,7 +56,10 @@ export async function createAssistantChat(
   }
 
   // Conditionally wrap with reliability features if configuration provided
-  if (config && (config.retries || config['contract-validation'] || config['retry-timeout'])) {
+  if (
+    config &&
+    (config.retries !== undefined || config['contract-validation'] || config['retry-timeout'])
+  ) {
     assistantChat = new ReliableAssistantChat(assistantChat, config);
   }
 

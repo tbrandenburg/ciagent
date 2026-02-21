@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { existsSync, readFileSync, rmSync } from 'fs';
 import type { ChatChunk } from '../../src/providers/types.js';
 import * as providers from '../../src/providers/index.js';
+import { mcpProvider } from '../../src/providers/mcp.js';
 import { runCommand } from '../../src/commands/run.js';
 
 function makeGenerator(chunks: ChatChunk[]): AsyncGenerator<ChatChunk> {
@@ -128,24 +129,12 @@ describe('runCommand', () => {
       });
 
       expect(exitCode).toBe(0);
-
-      // Check for status messages (order matters)
-      const logCalls = logSpy.mock.calls.map(call => call[0]);
-
-      // Should contain MCP status
-      expect(
-        logCalls.some(call => typeof call === 'string' && call.includes('[Status] MCP:'))
-      ).toBe(true);
-
-      // Should contain overall capability status
-      expect(
-        logCalls.some(
-          call =>
-            typeof call === 'string' &&
-            (call.includes('[Status] Available capabilities:') ||
-              call.includes('[Status] No enhanced capabilities available'))
-        )
-      ).toBe(true);
+      expect(logSpy).toHaveBeenCalledWith('ok');
+      expect(createAssistantChatSpy).toHaveBeenCalledWith('codex', {
+        provider: 'codex',
+        skill: 'test-skill',
+        skills: { paths: ['/test/skills'] },
+      });
 
       logSpy.mockRestore();
       errorSpy.mockRestore();
@@ -213,6 +202,59 @@ describe('runCommand', () => {
   });
 
   describe('Timeout and Resilience', () => {
+    describe('Timeout budget boundaries', () => {
+      it('does not consume timeout budget during provider setup delay', async () => {
+        const mockAssistantChat = {
+          sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
+          getType: () => 'codex',
+          listModels: vi.fn().mockResolvedValue(['codex-v1']),
+        };
+
+        vi.spyOn(providers, 'createAssistantChat').mockImplementation(async () => {
+          await new Promise(resolve => setTimeout(resolve, 80));
+          return mockAssistantChat;
+        });
+
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        const exitCode = await runCommand(['hello'], { provider: 'codex', timeout: 0.05 });
+
+        expect(exitCode).toBe(0);
+        expect(logSpy).toHaveBeenCalledWith('ok');
+
+        logSpy.mockRestore();
+        errorSpy.mockRestore();
+      });
+
+      it('does not block prompt execution on slow status emission', async () => {
+        const mockAssistantChat = {
+          sendQuery: () => makeGenerator([{ type: 'assistant', content: 'ok' }]),
+          getType: () => 'codex',
+          listModels: vi.fn().mockResolvedValue(['codex-v1']),
+        };
+
+        vi.spyOn(providers, 'createAssistantChat').mockResolvedValue(mockAssistantChat);
+        vi.spyOn(mcpProvider, 'initialize').mockImplementation(async () => {
+          await new Promise(resolve => setTimeout(resolve, 120));
+        });
+
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+        const startedAt = Date.now();
+        const exitCode = await runCommand(['hello'], { provider: 'codex', timeout: 0.05 });
+        const elapsedMs = Date.now() - startedAt;
+
+        expect(exitCode).toBe(0);
+        expect(logSpy).toHaveBeenCalledWith('ok');
+        expect(elapsedMs).toBeLessThan(100);
+
+        logSpy.mockRestore();
+        errorSpy.mockRestore();
+      });
+    });
+
     it('returns timeout exit code when provider stalls before next yield', async () => {
       const mockAssistantChat = {
         sendQuery: () =>

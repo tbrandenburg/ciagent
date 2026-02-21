@@ -38,14 +38,9 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
 
   const provider = config.provider ?? 'codex';
 
-  // Set up AbortController for timeout handling
-  const abortController = new (globalThis as any).AbortController();
   const timeoutSeconds = config.timeout ?? 60;
   const timeoutMs = timeoutSeconds * 1000; // Convert to milliseconds
-
-  const timeoutId = (globalThis as any).setTimeout(() => {
-    abortController.abort();
-  }, timeoutMs);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   try {
     const assistant = await createAssistantChat(provider, config);
@@ -54,15 +49,18 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     const assistantChunks: string[] = [];
     let assistantOutputBytes = 0;
 
-    // Emit status messages for available capabilities (non-blocking)
-    try {
-      await emitStatusMessages(config);
-    } catch (error) {
+    // Fire-and-forget status output so it never blocks prompt execution
+    void emitStatusMessages(config).catch(error => {
       console.log(
         '[Status] Warning: Status emission failed:',
         error instanceof Error ? error.message : String(error)
       );
-    }
+    });
+
+    const abortController = new AbortController();
+    timeoutId = setTimeout(() => {
+      abortController.abort();
+    }, timeoutMs);
 
     // Check if operation was aborted before starting
     if (abortController.signal.aborted) {
@@ -118,7 +116,9 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     }
 
     // Clear timeout if operation completed successfully
-    (globalThis as any).clearTimeout(timeoutId);
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
 
     if (providerError) {
       const error = CommonErrors.executionFailed(providerError);
@@ -159,7 +159,9 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     return ExitCode.SUCCESS;
   } catch (error) {
     // Clear timeout in case of error
-    (globalThis as any).clearTimeout(timeoutId);
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
 
     const message = error instanceof Error ? error.message : String(error);
 
