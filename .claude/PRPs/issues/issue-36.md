@@ -26,6 +26,8 @@
 
 The run command starts its timeout clock too early and spends that budget on setup work (`createAssistantChat`, MCP/status initialization) before response consumption begins. This is amplified by MCP connection reliability defaults (up to ~60s per server path) and by the reliability wrapper delaying visible output until an attempt completes.
 
+Additional deeper finding: there is no true "endless timeout" mode today, and even very large `--timeout` values do not control all timeout paths. `--timeout` must be `> 0` and command defaults enable the reliability wrapper (`retries: 1`), which has its own independent retry window (`retry-timeout`, default `30000ms`).
+
 ### Evidence Chain
 
 WHY: `cia run` returns timeout (exit code 5) for a simple prompt.
@@ -45,6 +47,19 @@ Evidence: `packages/cli/src/providers/mcp/reliability.ts:7` - `DEFAULT_TIMEOUT =
 
 ↓ ROOT CAUSE: The command-level timeout budget is consumed by pre-query initialization instead of being scoped to query execution/streaming.
 Evidence: `packages/cli/src/commands/run.ts:75` - `const hardDeadline = Date.now() + timeoutMs;`
+
+WHY "endless timeout" still does not strictly exist
+↓ BECAUSE: validation rejects zero/disabled timeout values.
+Evidence: `packages/cli/src/shared/validation/validation.ts:107-109` - `Must be a positive number`
+
+↓ BECAUSE: CLI defaults force reliability wrapper path even when user does not request retries explicitly.
+Evidence: `packages/cli/src/cli.ts:179` - `retries: config.retries ?? 1`
+Evidence: `packages/cli/src/providers/index.ts:59` - wrapper enabled when `config.retries` is truthy
+
+↓ BECAUSE: reliability wrapper enforces a separate retry window default.
+Evidence: `packages/cli/src/providers/reliability.ts:23` - `const retryTimeout = this.config['retry-timeout'] ?? 30000;`
+
+↓ DEEPER ROOT CAUSE: timeout semantics are fragmented (run timeout vs retry timeout vs MCP timeout), so users cannot rely on one `--timeout` knob for "never timeout" behavior.
 
 ### Affected Files
 
@@ -180,6 +195,65 @@ describe('Timeout budget boundaries', () => {
 
 ---
 
+### Step 4: Align timeout semantics to avoid hidden timeout ceilings
+
+**File**: `packages/cli/src/providers/index.ts`
+**Lines**: 59-61
+**Action**: UPDATE
+
+**Current code:**
+
+```typescript
+if (config && (config.retries || config['contract-validation'] || config['retry-timeout'])) {
+  assistantChat = new ReliableAssistantChat(assistantChat, config);
+}
+```
+
+**Required change:**
+
+```typescript
+// Keep reliability opt-in unless explicitly configured.
+// Do not implicitly enable a second timeout domain via default retries.
+if (config && (config.retries !== undefined || config['contract-validation'] || config['retry-timeout'])) {
+  assistantChat = new ReliableAssistantChat(assistantChat, config);
+}
+```
+
+**Why**: Prevents unrequested retry-window timeout behavior in the default path.
+
+---
+
+### Step 5: Add explicit no-timeout support (optional but recommended for issue intent)
+
+**File**: `packages/cli/src/shared/validation/validation.ts`
+**Action**: UPDATE
+
+**Current code:**
+
+```typescript
+if (config.timeout !== undefined) {
+  if (isNaN(config.timeout) || config.timeout <= 0) {
+    errors.push(`Invalid timeout: ${config.timeout}. Must be a positive number.`);
+  }
+}
+```
+
+**Required change:**
+
+```typescript
+if (config.timeout !== undefined) {
+  if (isNaN(config.timeout) || config.timeout < 0) {
+    errors.push(`Invalid timeout: ${config.timeout}. Must be zero or a positive number.`);
+  }
+}
+```
+
+Then in `runCommand`, treat `timeout === 0` as no deadline (skip AbortController and `withTimeout` wrapping).
+
+**Why**: Gives users a deterministic "endless timeout" option for debugging and long-running turns.
+
+---
+
 ## Patterns to Follow
 
 **From codebase - mirror these exactly:**
@@ -210,7 +284,7 @@ it('returns timeout exit code when provider stalls before next yield', async () 
 | Status logs interleave with assistant output when status emission is async | Keep status messages prefixed (`[Status] ...`) and preserve deterministic assistant chunk handling. |
 | Existing users rely on timeout covering entire command wall-clock time | Document behavior in help/docs as "provider response timeout" if needed; keep error wording unchanged for compatibility. |
 | Slow MCP init still delays provider creation path (`createAssistantChat`) | If timeout issue persists after Step 1, phase-2 follow-up can decouple MCP init from provider factory in a separate issue. |
-| Reliability wrapper (default retries=1) still delays first visible chunk | Keep out of scope for this fix; capture as future enhancement if user-perceived latency remains high. |
+| Reliability wrapper (default retries=1) still delays first visible chunk and can apply separate retry timeout semantics | In-scope Step 4 reduces surprise by making reliability explicit; add focused tests for default path behavior. |
 
 ---
 
