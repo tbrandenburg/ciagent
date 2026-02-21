@@ -9,7 +9,6 @@ import { processMultipleContextSources } from '../utils/context-processors.js';
 import { SkillsManager } from '../skills/index.js';
 import { mcpProvider } from '../providers/mcp.js';
 
-const CHUNK_STALL_TIMEOUT_MS = 5000;
 const MAX_ASSISTANT_OUTPUT_BYTES = 1024 * 1024;
 
 export async function runCommand(args: string[], config: CIAConfig): Promise<number> {
@@ -83,8 +82,8 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
 
       const nextChunk = await withTimeout(
         chunkIterator.next(),
-        Math.min(remainingMs, CHUNK_STALL_TIMEOUT_MS),
-        `Operation timed out after ${Math.min(remainingMs, CHUNK_STALL_TIMEOUT_MS)}ms while waiting for next response chunk`
+        remainingMs,
+        `Operation timed out after ${timeoutSeconds} seconds`
       );
 
       if (nextChunk.done) {

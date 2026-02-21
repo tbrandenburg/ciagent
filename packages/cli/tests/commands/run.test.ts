@@ -214,8 +214,6 @@ describe('runCommand', () => {
 
   describe('Timeout and Resilience', () => {
     it('returns timeout exit code when provider stalls before next yield', async () => {
-      vi.useFakeTimers();
-
       const mockAssistantChat = {
         sendQuery: () =>
           (async function* stalledAfterFirstChunk() {
@@ -230,21 +228,42 @@ describe('runCommand', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const runPromise = runCommand(['hello'], { provider: 'codex', timeout: 5 });
-      await vi.advanceTimersByTimeAsync(5001);
-      const exitCode = await runPromise;
+      const exitCode = await runCommand(['hello'], { provider: 'codex', timeout: 0.02 });
 
       expect(exitCode).toBe(5);
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Operation timed out'));
 
       logSpy.mockRestore();
       errorSpy.mockRestore();
-      vi.useRealTimers();
+    });
+
+    it('does not timeout when next chunk arrives within overall timeout', async () => {
+      const mockAssistantChat = {
+        sendQuery: () =>
+          (async function* delayedSecondChunk() {
+            yield { type: 'assistant', content: 'first' } as ChatChunk;
+            await new Promise(resolve => setTimeout(resolve, 30));
+            yield { type: 'assistant', content: 'second' } as ChatChunk;
+          })(),
+        getType: () => 'codex',
+        listModels: vi.fn().mockResolvedValue(['codex-v1']),
+      };
+
+      vi.spyOn(providers, 'createAssistantChat').mockResolvedValue(mockAssistantChat);
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const exitCode = await runCommand(['hello'], { provider: 'codex', timeout: 0.2 });
+
+      expect(exitCode).toBe(0);
+      expect(logSpy).toHaveBeenCalledWith('first');
+      expect(logSpy).toHaveBeenCalledWith('second');
+
+      logSpy.mockRestore();
+      errorSpy.mockRestore();
     });
 
     it('returns timeout exit code when provider never yields', async () => {
-      vi.useFakeTimers();
-
       const mockAssistantChat = {
         sendQuery: () =>
           (async function* neverYields() {
@@ -258,16 +277,13 @@ describe('runCommand', () => {
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-      const runPromise = runCommand(['hello'], { provider: 'codex', timeout: 1 });
-      await vi.advanceTimersByTimeAsync(1001);
-      const exitCode = await runPromise;
+      const exitCode = await runCommand(['hello'], { provider: 'codex', timeout: 0.02 });
 
       expect(exitCode).toBe(5);
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Operation timed out'));
 
       logSpy.mockRestore();
       errorSpy.mockRestore();
-      vi.useRealTimers();
     });
 
     it('fails loudly when assistant output exceeds configured cap', async () => {
