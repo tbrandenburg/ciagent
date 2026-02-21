@@ -17,12 +17,84 @@ make build
 # Run full CI validation
 make ci
 
+# Enforce issue #8 binary-size gate
+make validate-size
+
+# Build and smoke-test container packaging
+make validate-docker
+
 # Run CLI scaffold commands
 bun packages/cli/src/cli.ts --help
 bun packages/cli/src/cli.ts --version
 bun packages/cli/src/cli.ts run "test"
 bun packages/cli/src/cli.ts models
 ```
+
+## Packaging and CI Quickstart
+
+### Local packaging flow
+
+```bash
+# Build release binary profile
+make build
+
+# Verify binary is functional
+./dist/cia --help
+./dist/cia --version
+
+# Enforce binary-size policy (Issue #8)
+bash scripts/check-binary-size.sh
+
+# Build and run container image
+docker build -t ciagent:latest .
+docker run --rm ciagent:latest cia --version
+```
+
+### GitHub Actions example
+
+```yaml
+name: CI Packaging
+on: [push]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.9'
+      - run: bun install --frozen-lockfile
+      - run: make validate-size
+      - run: docker build -t ciagent:${{ github.sha }} .
+      - run: docker run --rm ciagent:${{ github.sha }} cia --version
+```
+
+### GitLab CI example
+
+```yaml
+stages:
+  - package
+
+package:
+  stage: package
+  image: oven/bun:1.3.9
+  services:
+    - docker:dind
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  script:
+    - bun install --frozen-lockfile
+    - make validate-size
+    - docker build -t ciagent:$CI_COMMIT_SHA .
+    - docker run --rm ciagent:$CI_COMMIT_SHA cia --version
+```
+
+### Related docs
+
+- CLI spec: `docs/cia-cli-spec.md`
+- Enterprise network setup: `docs/enterprise-network-setup.md`
 
 ## Setup Guide
 
@@ -295,6 +367,8 @@ Run `make help` to see all available targets including:
 - `make test-coverage` - Run tests with coverage report
 - `make install-hooks` - Install Git pre-push hook
 - `make validate-all` - Run all validation levels from plan
+- `make validate-size` - Enforce binary-size budget gate for `dist/cia`
+- `make validate-docker` - Build Docker image and run `cia --version` smoke test
 
 ## Architecture
 

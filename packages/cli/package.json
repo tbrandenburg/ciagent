@@ -11,7 +11,9 @@
     "type-check": "bun tsc --noEmit",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "build": "bun build --compile --minify --sourcemap --bytecode src/cli.ts --outfile ../../dist/cia",
+    "build": "bun run build:release",
+    "build:dev": "bun build --compile --minify --sourcemap --bytecode src/cli.ts --outfile ../../dist/cia",
+    "build:release": "bun build --compile --minify --bytecode src/cli.ts --outfile ../../dist/cia",
     "lint": "eslint src/"
   },
   "dependencies": {

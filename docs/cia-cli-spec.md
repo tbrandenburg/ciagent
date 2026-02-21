@@ -7,6 +7,10 @@
 - Emits structured output with metadata.
 - v1 returns a single response (non-streaming); streaming is deferred to v2+.
 
+## Related Docs
+- `README.md` (packaging, CI, and operator quickstart)
+- `docs/enterprise-network-setup.md` (proxy and CA setup for enterprise environments)
+
 ## Command
 - `cia run`
 
@@ -77,11 +81,11 @@ Legacy CLI flags (deprecated, use config file instead):
 
 ## Configuration and Authentication
 
-Configuration lookup order (JSON configuration is optional):
-1. CLI flags (highest priority)
-2. `.cia/config.json` in repo root
-3. `~/.cia/config.json` in user home
-4. Environment variables (fallback)
+Configuration lookup order (later entries override earlier entries):
+1. Environment variables (fallback)
+2. `~/.cia/config.json` in user home
+3. `.cia/config.json` in repo root
+4. CLI flags (highest priority)
 
 ### Configuration Schema
 
@@ -91,7 +95,7 @@ CIA uses a structured configuration format based on OpenCode's schema (https://o
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "azure/gpt-5.2",
-  "provider": {
+  "providers": {
     "codex": {
       "name": "Codex SDK",
       "auth": {
@@ -223,16 +227,23 @@ Configuration values support environment variable substitution using `{env:VAR_N
 
 ### Environment Variables
 
-CIA supports no environment variables for simplicity!
+CIA supports environment variables for provider defaults and enterprise networking.
 
-Only configuration JSON and CLI parameters are supported.
+Provider examples:
+- `CIA_PROVIDER`
+- `CIA_MODEL`
+- `AZURE_OPENAI_API_KEY`
+- `OPENAI_API_KEY`
+- `ANTHROPIC_API_KEY`
 
-The only supported environment variables are state-of-the-art environment variables like:
+Enterprise networking variables:
+- `HTTP_PROXY`
+- `HTTPS_PROXY`
+- `NO_PROXY`
+- `NODE_EXTRA_CA_CERTS`
+- `NODE_USE_ENV_PROXY`
 
-- HTTP_PROXY
-- HTTPS_PROXY
-- NO_PROXY
-- NODE_EXTRA_CA_CERTS
+See `docs/enterprise-network-setup.md` for production proxy and certificate guidance.
 
 ### Codex Authentication
 

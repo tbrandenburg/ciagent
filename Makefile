@@ -1,4 +1,4 @@
-.PHONY: help install build test test-coverage clean dev lint type-check global-install benchmark validate-bench
+.PHONY: help install build test test-coverage clean dev lint type-check global-install benchmark validate-bench validate-size validate-docker
 .DEFAULT_GOAL := help
 
 PREFIX ?= /usr/local
@@ -66,7 +66,16 @@ validate-bench: ## Validate benchmark tests and benchmark harness
 	npx vitest --run packages/cli/tests/benchmarks/*.test.ts
 	$(MAKE) benchmark
 
-validate-all: validate-l1 validate-l2 validate-l3 validate-l4 ## Run all validation levels
+validate-size: ## Validate compiled binary size budget
+	$(MAKE) build
+	bash scripts/check-binary-size.sh
+
+validate-docker: ## Validate Docker packaging and runtime smoke test
+	@command -v docker >/dev/null 2>&1 || (echo "docker is required for validate-docker" >&2 && exit 1)
+	docker build -t ciagent:latest .
+	docker run --rm ciagent:latest cia --version
+
+validate-all: validate-l1 validate-l2 validate-l3 validate-l4 validate-size ## Run all validation levels
 
 # Development workflow
 dev-setup: install install-hooks ## Set up development environment
