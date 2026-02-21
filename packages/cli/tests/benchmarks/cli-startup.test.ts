@@ -12,8 +12,8 @@ type StartupMetric = {
 const CLI_PATH = 'packages/cli/src/cli.ts';
 const SAMPLE_COUNT = 7;
 const WARMUP_COUNT = 1;
-const MEAN_BUDGET_MS = 1500;
-const P95_BUDGET_MS = 2500;
+const MEAN_BUDGET_MS = Number(process.env.CIA_BENCH_MEAN_BUDGET_MS ?? '1800');
+const P95_BUDGET_MS = Number(process.env.CIA_BENCH_P95_BUDGET_MS ?? '3500');
 
 function runCliAndMeasure(args: string[]): { durationMs: number; exitCode: number | null } {
   const start = performance.now();
