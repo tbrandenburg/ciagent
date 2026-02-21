@@ -88,6 +88,13 @@ describe('Input Validation', () => {
       expect(result.errors).toContain('Invalid retries: -1. Must be a non-negative number.');
     });
 
+    it('should validate retry-timeout is positive number', () => {
+      const invalidConfig: CIAConfig = { 'retry-timeout': 0 };
+      const result = validateConfig(invalidConfig);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Invalid retry-timeout: 0. Must be a positive number.');
+    });
+
     it('should validate log-level values', () => {
       const validConfig: CIAConfig = { 'log-level': 'DEBUG' };
       const result = validateConfig(validConfig);

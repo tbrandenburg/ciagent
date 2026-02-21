@@ -217,6 +217,26 @@ describe('ReliableAssistantChat', () => {
       expect(callCount).toBe(2);
       expect(duration).toBeLessThan(3000);
     });
+
+    it('keeps retry behavior bounded in wall-clock time', async () => {
+      config.retries = 3;
+      config['retry-backoff'] = false;
+      config['retry-timeout'] = 600;
+      reliableProvider = new ReliableAssistantChat(mockProvider, config);
+      mockProvider.setShouldThrow(true, 'Persistent failure');
+
+      const startTime = Date.now();
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+        chunks.push(chunk);
+      }
+      const duration = Date.now() - startTime;
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].type).toBe('error');
+      expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
+      expect(duration).toBeLessThan(3000);
+    });
   });
 
   describe('Contract Validation', () => {

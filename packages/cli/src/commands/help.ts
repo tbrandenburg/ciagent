@@ -52,7 +52,9 @@ export function printHelpText(): void {
   console.log('RELIABILITY:');
   console.log('  --retries            Number of retry attempts [default: 1]');
   console.log('  --retry-backoff      Enable exponential backoff on retries [default: true]');
+  console.log('  --retry-timeout      Retry budget in milliseconds [default: 30000]');
   console.log('  --timeout            Timeout in seconds [default: 60]');
+  console.log('  run guardrails       Includes stall detection and 1MB assistant output cap');
   console.log('');
   console.log('PROVIDER CONFIGURATION:');
   console.log('  --endpoint           Custom API endpoint URL');
