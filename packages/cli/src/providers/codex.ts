@@ -120,14 +120,19 @@ export class CodexAssistantChat implements IAssistantChat {
       const eventType = event.type;
 
       if (eventType === 'error') {
-        const message = typeof event.message === 'string' ? event.message : 'Unknown Codex error';
+        const eventError = event.error as { message?: string } | undefined;
+        const message =
+          (typeof event.message === 'string' && event.message) ||
+          (typeof eventError?.message === 'string' && eventError.message) ||
+          'Unknown Codex error';
         yield { type: 'error', content: message };
         break;
       }
 
       if (eventType === 'turn.failed') {
-        const error = event.error as { message?: string } | undefined;
-        yield { type: 'error', content: error?.message ?? 'Codex turn failed' };
+        const error = event.error as { message?: string; cause?: { message?: string } } | undefined;
+        const message = error?.message ?? error?.cause?.message ?? 'Codex turn failed';
+        yield { type: 'error', content: message };
         break;
       }
 

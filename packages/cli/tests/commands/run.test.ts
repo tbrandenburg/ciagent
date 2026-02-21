@@ -74,6 +74,44 @@ describe('runCommand', () => {
     errorSpy.mockRestore();
   });
 
+  it('prints actionable provider detail when error chunk includes reliability + detail text', async () => {
+    const mockAssistantChat = {
+      sendQuery: () =>
+        makeGenerator([
+          {
+            type: 'error',
+            content:
+              'Provider failed after 1 retry attempts: The model `gpt-5.3-codex` does not exist or you do not have access to it.',
+          },
+        ]),
+      getType: () => 'reliable-codex',
+      listModels: vi.fn().mockResolvedValue(['codex-v1']),
+    };
+
+    vi.spyOn(providers, 'createAssistantChat').mockResolvedValue(mockAssistantChat);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const exitCode = await runCommand(['hello'], { provider: 'codex' });
+
+    expect(exitCode).toBe(4);
+    expect(logSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('does not exist or you do not have access')
+    );
+    expect(
+      errorSpy.mock.calls.some(
+        call =>
+          typeof call[0] === 'string' &&
+          call[0].includes(
+            'The model `gpt-5.3-codex` does not exist or you do not have access to it.'
+          )
+      )
+    ).toBe(true);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it('writes structured output file when output-file is configured', async () => {
     const mockAssistantChat = {
       sendQuery: () => makeGenerator([{ type: 'assistant', content: '{"ok":true}' }]),

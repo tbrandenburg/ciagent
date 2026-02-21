@@ -124,8 +124,8 @@ describe('ReliableAssistantChat', () => {
       expect(mockProvider.getCallCount()).toBe(3); // 3rd attempt succeeds
     });
 
-    it('should exhaust retries and return error', async () => {
-      mockProvider.setShouldThrow(true, 'Persistent failure'); // Always fail
+    it('includes underlying reason in retry exhausted error output', async () => {
+      mockProvider.setShouldThrow(true, 'Persistent failure: ECONNRESET'); // Always fail
 
       const chunks: ChatChunk[] = [];
       for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
@@ -135,6 +135,7 @@ describe('ReliableAssistantChat', () => {
       expect(chunks).toHaveLength(1);
       expect(chunks[0].type).toBe('error');
       expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
+      expect(chunks[0].content).toContain('Persistent failure: ECONNRESET');
       expect(mockProvider.getCallCount()).toBe(4); // Original + 3 retries = 4 total
     }, 15000); // 15 second timeout
 
@@ -164,6 +165,24 @@ describe('ReliableAssistantChat', () => {
       expect(chunks[0].type).toBe('error');
       expect(mockProvider.getCallCount()).toBe(1); // Should not retry
     }, 10000);
+
+    it('includes non-retryable auth/model reason in reliability output', async () => {
+      mockProvider.setShouldThrow(
+        true,
+        'The model `gpt-5.3-codex` does not exist or you do not have access to it.'
+      );
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].type).toBe('error');
+      expect(chunks[0].content).toContain("Provider 'reliable-mock-provider' reliability issue");
+      expect(chunks[0].content).toContain('does not exist or you do not have access');
+      expect(mockProvider.getCallCount()).toBe(1);
+    });
 
     it('should respect retry configuration', async () => {
       config.retries = 1; // Only 1 retry
