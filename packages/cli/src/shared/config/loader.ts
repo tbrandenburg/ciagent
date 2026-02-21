@@ -85,68 +85,10 @@ function loadFromEnv(): Partial<CIAConfig> {
     loadDotEnvFile(globalEnvPath);
   }
 
-  // Build providers config from environment variables
-  const providers: CIAConfig['providers'] = {};
-
-  // Azure provider configuration
-  if (process.env.AZURE_OPENAI_API_KEY || process.env.AZURE_OPENAI_ENDPOINT) {
-    providers.azure = {
-      apiKey: process.env.AZURE_OPENAI_API_KEY,
-      baseUrl: process.env.AZURE_OPENAI_ENDPOINT,
-      resourceName: process.env.AZURE_OPENAI_RESOURCE_NAME,
-      model: process.env.AZURE_OPENAI_MODEL,
-    };
-  }
-
-  // OpenAI provider configuration
-  if (process.env.OPENAI_API_KEY) {
-    providers.openai = {
-      apiKey: process.env.OPENAI_API_KEY,
-      baseUrl: process.env.OPENAI_BASE_URL,
-      organization: process.env.OPENAI_ORG_ID,
-      model: process.env.OPENAI_MODEL,
-    };
-  }
-
-  // Google provider configuration
-  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    providers.google = {
-      apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-      projectId: process.env.GOOGLE_CLOUD_PROJECT,
-      model: process.env.GOOGLE_MODEL,
-    };
-  }
-
-  // Anthropic provider configuration
-  if (process.env.ANTHROPIC_API_KEY) {
-    providers.anthropic = {
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      version: process.env.ANTHROPIC_VERSION,
-      model: process.env.ANTHROPIC_MODEL,
-    };
-  }
-
   const network = loadNetworkConfigFromEnv();
 
   return {
-    provider: process.env.CIA_PROVIDER,
-    model: process.env.CIA_MODEL,
-    mode: process.env.CIA_MODE as 'lazy' | 'strict',
-    format: process.env.CIA_FORMAT as 'default' | 'json',
-    'api-key': process.env.CIA_API_KEY,
-    'api-version': process.env.CIA_API_VERSION,
-    endpoint: process.env.CIA_ENDPOINT,
-    org: process.env.CIA_ORG,
-    'log-level': process.env.CIA_LOG_LEVEL,
-    timeout: process.env.CIA_TIMEOUT ? parseInt(process.env.CIA_TIMEOUT, 10) : undefined,
-    retries: process.env.CIA_RETRIES ? parseInt(process.env.CIA_RETRIES, 10) : undefined,
-    'retry-timeout': process.env.CIA_RETRY_TIMEOUT
-      ? parseInt(process.env.CIA_RETRY_TIMEOUT, 10)
-      : undefined,
-    'contract-validation': process.env.CIA_CONTRACT_VALIDATION === 'true',
     ...(network && { network }),
-    // Only include providers if at least one was configured
-    ...(Object.keys(providers).length > 0 && { providers }),
   };
 }
 

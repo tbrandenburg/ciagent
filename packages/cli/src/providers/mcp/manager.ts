@@ -55,15 +55,21 @@ export class MCPManager {
   private tools: Map<string, MCPTool> = new Map();
   private status: Map<string, MCPServerStatus> = new Map();
   private config: Record<string, MCPServerConfig> = {};
+  private logLevel?: string;
 
-  constructor() {
+  constructor(logLevel?: string) {
+    this.logLevel = logLevel;
     // Handle cleanup on process exit
     process.on('SIGINT', () => this.cleanup());
     process.on('SIGTERM', () => this.cleanup());
   }
 
+  setLogLevel(logLevel?: string): void {
+    this.logLevel = logLevel;
+  }
+
   private isDebugEnabled(): boolean {
-    return process.env.CIA_LOG_LEVEL?.toUpperCase() === 'DEBUG';
+    return this.logLevel?.toUpperCase() === 'DEBUG';
   }
 
   private redactProxy(proxyUrl: string): string {

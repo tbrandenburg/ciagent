@@ -231,7 +231,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | 9 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | complete | with 8 | 7.6 | .claude/PRPs/plans/completed/phase-9-reliability-timeout-resilience.plan.md |
 | 10 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | complete | - | 9 | .claude/PRPs/plans/completed/testing-benchmarks.plan.md |
 | 11 | Packaging & docs | Bun binary, Docker image, README with examples | complete | - | 10 | .claude/PRPs/plans/completed/packaging-and-docs.plan.md |
-| 12 | Legacy cleanup | Remove deprecated environment variable support | pending | - | 11 | - |
+| 12 | Legacy cleanup | Remove deprecated environment variable support | complete | - | 11 | .claude/PRPs/plans/completed/legacy-cleanup.plan.md |
 
 ### Phase Details
 

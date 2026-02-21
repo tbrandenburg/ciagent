@@ -82,10 +82,9 @@ Legacy CLI flags (deprecated, use config file instead):
 ## Configuration and Authentication
 
 Configuration lookup order (later entries override earlier entries):
-1. Environment variables (fallback)
-2. `~/.cia/config.json` in user home
-3. `.cia/config.json` in repo root
-4. CLI flags (highest priority)
+1. `~/.cia/config.json` in user home
+2. `.cia/config.json` in repo root
+3. CLI flags (highest priority)
 
 ### Configuration Schema
 
@@ -119,10 +118,10 @@ CIA uses a structured configuration format based on OpenCode's schema (https://o
       "name": "Azure OpenAI",
       "options": {
         "baseURL": "https://your-resource.openai.azure.com/",
-        "apiKey": "{env:AZURE_OPENAI_API_KEY}",
+        "apiKey": "${AZURE_OPENAI_API_KEY}",
         "apiVersion": "2024-12-01-preview",
         "headers": {
-          "api-key": "{env:AZURE_OPENAI_API_KEY}"
+          "api-key": "${AZURE_OPENAI_API_KEY}"
         }
       },
       "models": {
@@ -139,8 +138,8 @@ CIA uses a structured configuration format based on OpenCode's schema (https://o
     "openai": {
       "name": "OpenAI",
       "options": {
-        "apiKey": "{env:OPENAI_API_KEY}",
-        "organization": "{env:OPENAI_ORG_ID}",
+        "apiKey": "${OPENAI_API_KEY}",
+        "organization": "${OPENAI_ORG_ID}",
         "reasoningEffort": "medium",
         "store": false
       },
@@ -163,7 +162,7 @@ CIA uses a structured configuration format based on OpenCode's schema (https://o
     "claude": {
       "name": "Anthropic Claude",
       "options": {
-        "apiKey": "{env:ANTHROPIC_API_KEY}"
+        "apiKey": "${ANTHROPIC_API_KEY}"
       },
       "models": {
         "claude-3-5-sonnet": {
@@ -210,15 +209,15 @@ Each provider supports:
 
 ### Environment Variable Substitution
 
-Configuration values support environment variable substitution using `{env:VAR_NAME}` syntax:
+Configuration values support environment variable substitution using `${VAR_NAME}` syntax:
 
 ```json
 {
   "providers": {
     "azure": {
       "options": {
-        "apiKey": "{env:AZURE_OPENAI_API_KEY}",
-        "baseURL": "{env:AZURE_OPENAI_ENDPOINT}"
+        "apiKey": "${AZURE_OPENAI_API_KEY}",
+        "baseURL": "${AZURE_OPENAI_ENDPOINT}"
       }
     }
   }
@@ -227,14 +226,14 @@ Configuration values support environment variable substitution using `{env:VAR_N
 
 ### Environment Variables
 
-CIA supports environment variables for provider defaults and enterprise networking.
+CIA only supports environment variables for enterprise networking and optional `${VAR}`
+substitution inside config files.
 
-Provider examples:
+Legacy provider/config defaults via environment variables are removed:
 - `CIA_PROVIDER`
 - `CIA_MODEL`
-- `AZURE_OPENAI_API_KEY`
-- `OPENAI_API_KEY`
-- `ANTHROPIC_API_KEY`
+- `CIA_*` runtime defaults
+- direct provider fallback defaults via `AZURE_OPENAI_*`, `OPENAI_*`, `ANTHROPIC_*`
 
 Enterprise networking variables:
 - `HTTP_PROXY`

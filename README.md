@@ -95,6 +95,7 @@ package:
 
 - CLI spec: `docs/cia-cli-spec.md`
 - Enterprise network setup: `docs/enterprise-network-setup.md`
+- Legacy env migration: `docs/legacy-env-migration.md`
 
 ## Setup Guide
 
@@ -350,7 +351,10 @@ CIA CLI uses this configuration priority order:
 1. CLI flags (highest priority)
 2. Repository config (`.cia/config.json`)
 3. User config (`~/.cia/config.json`)
-4. Environment variables (lowest priority)
+
+Environment variables are reserved for enterprise transport (`HTTP_PROXY`, `HTTPS_PROXY`,
+`NO_PROXY`, `NODE_EXTRA_CA_CERTS`, `NODE_USE_ENV_PROXY`) and optional `${VAR}` substitution in
+config values.
 
 ## Development Workflow
 
@@ -375,7 +379,7 @@ Run `make help` to see all available targets including:
 This is Phase 1 of the ciagent implementation, providing the core CLI scaffold with:
 - TypeScript + Bun runtime
 - Complete CLI argument parsing and validation  
-- Configuration hierarchy (CLI > repo > user > env)
+- Configuration hierarchy (CLI > repo > user, plus enterprise transport env vars)
 - `run` and `models` command surface
 - Codex-first chat integration via `IAssistantChat`
 - Comprehensive test suite (89.73% coverage)

@@ -33,6 +33,11 @@ describe('Configuration Loader', () => {
     delete process.env.NO_PROXY;
     delete process.env.NODE_EXTRA_CA_CERTS;
     delete process.env.NODE_USE_ENV_PROXY;
+    delete process.env.CIA_PROVIDER;
+    delete process.env.CIA_MODEL;
+    delete process.env.AZURE_OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
   });
 
   afterEach(() => {
@@ -55,6 +60,11 @@ describe('Configuration Loader', () => {
     delete process.env.NO_PROXY;
     delete process.env.NODE_EXTRA_CA_CERTS;
     delete process.env.NODE_USE_ENV_PROXY;
+    delete process.env.CIA_PROVIDER;
+    delete process.env.CIA_MODEL;
+    delete process.env.AZURE_OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.ANTHROPIC_API_KEY;
   });
 
   describe('Configuration Hierarchy', () => {
@@ -95,28 +105,16 @@ describe('Configuration Loader', () => {
   });
 
   describe('Environment Variables', () => {
-    it('should load from environment variables', () => {
-      const originalProvider = process.env.CIA_PROVIDER;
-      const originalModel = process.env.CIA_MODEL;
-
+    it('should ignore legacy provider/model environment variables', () => {
       process.env.CIA_PROVIDER = 'codex';
       process.env.CIA_MODEL = 'gemini-pro';
+      process.env.OPENAI_API_KEY = 'legacy-openai-key';
 
       const config = loadConfig();
-      expect(config.provider).toBe('codex');
-      expect(config.model).toBe('gemini-pro');
 
-      // Restore environment
-      if (originalProvider) {
-        process.env.CIA_PROVIDER = originalProvider;
-      } else {
-        delete process.env.CIA_PROVIDER;
-      }
-      if (originalModel) {
-        process.env.CIA_MODEL = originalModel;
-      } else {
-        delete process.env.CIA_MODEL;
-      }
+      expect(config.provider).toBeUndefined();
+      expect(config.model).toBeUndefined();
+      expect(config.providers).toBeUndefined();
     });
 
     it('should normalize enterprise network environment variables', () => {

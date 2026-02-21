@@ -103,6 +103,15 @@ describe('Error Handling', () => {
       expect(error.message).toBe('Operation timed out after 30s');
     });
 
+    it('creates missingProvider error with explicit config guidance', () => {
+      const error = CommonErrors.missingProvider();
+
+      expect(error.code).toBe(ExitCode.AUTH_CONFIG);
+      expect(error.suggestion).toBe(
+        'Set --provider=codex or configure provider in .cia/config.json'
+      );
+    });
+
     it('creates enterprise proxy/certificate errors with expected exit codes', () => {
       const proxyConfig = CommonErrors.proxyConfigurationInvalid('Malformed HTTPS_PROXY URL');
       const proxyConnection = CommonErrors.proxyConnectionFailed(

@@ -36,6 +36,7 @@ export class MCPProvider {
       // Load MCP configuration safely
       let mcpConfig: Record<string, MCPServerConfig> = {};
       if (config) {
+        this.mcpManager.setLogLevel(config['log-level']);
         try {
           const structuredConfig = loadStructuredConfig(config);
           const mcpStructured = structuredConfig?.mcp;

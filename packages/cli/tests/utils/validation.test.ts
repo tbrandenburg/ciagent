@@ -222,7 +222,7 @@ describe('Input Validation', () => {
       const result = validateExecutionRequirements(config);
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        'Model is required for execution. Use --model or set CIA_MODEL environment variable.'
+        'Model is required for execution. Use --model or define model in .cia/config.json.'
       );
     });
   });
