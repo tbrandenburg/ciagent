@@ -74,6 +74,33 @@ describe('runCommand', () => {
     errorSpy.mockRestore();
   });
 
+  it('does not misclassify provider error chunks containing timeout wording as timeout', async () => {
+    const mockAssistantChat = {
+      sendQuery: () =>
+        makeGenerator([
+          {
+            type: 'error',
+            content: 'Provider timeout policy rejected this request as invalid.',
+          },
+        ]),
+      getType: () => 'codex',
+      listModels: vi.fn().mockResolvedValue(['codex-v1']),
+    };
+
+    vi.spyOn(providers, 'createAssistantChat').mockResolvedValue(mockAssistantChat);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const exitCode = await runCommand(['hello'], { provider: 'codex' });
+
+    expect(exitCode).toBe(4);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('AI execution failed'));
+    expect(errorSpy).not.toHaveBeenCalledWith(expect.stringContaining('Operation timed out'));
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it('prints actionable provider detail when error chunk includes reliability + detail text', async () => {
     const mockAssistantChat = {
       sendQuery: () =>

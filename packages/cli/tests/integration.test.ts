@@ -12,9 +12,13 @@ describe('CLI Integration', () => {
   const repoConfigFile = resolve(repoConfigDir, 'config.json');
   let processExitSpy: any;
   let originalHome: string | undefined;
+  let originalRunE2ETests: string | undefined;
+  let originalE2EScenario: string | undefined;
 
   beforeEach(() => {
     originalHome = process.env.HOME;
+    originalRunE2ETests = process.env.RUN_E2E_TESTS;
+    originalE2EScenario = process.env.CIA_E2E_SCENARIO;
     process.env.HOME = testHome;
 
     if (existsSync(testConfigFile)) unlinkSync(testConfigFile);
@@ -38,6 +42,18 @@ describe('CLI Integration', () => {
       process.env.HOME = originalHome;
     } else {
       delete process.env.HOME;
+    }
+
+    if (originalRunE2ETests) {
+      process.env.RUN_E2E_TESTS = originalRunE2ETests;
+    } else {
+      delete process.env.RUN_E2E_TESTS;
+    }
+
+    if (originalE2EScenario) {
+      process.env.CIA_E2E_SCENARIO = originalE2EScenario;
+    } else {
+      delete process.env.CIA_E2E_SCENARIO;
     }
   });
 
@@ -90,5 +106,24 @@ describe('CLI Integration', () => {
 
     const exitCode = await main(['run', 'test']);
     expect(exitCode).toBe(1);
+  });
+
+  it('main() default run path keeps actionable reliability detail', async () => {
+    process.env.RUN_E2E_TESTS = '1';
+    process.env.CIA_E2E_SCENARIO = 'nonretryable-model-error';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const exitCode = await main(['run', 'test prompt']);
+
+    expect(exitCode).toBe(4);
+    expect(
+      errorSpy.mock.calls.some(
+        call =>
+          typeof call[0] === 'string' &&
+          call[0].includes('does not exist or you do not have access')
+      )
+    ).toBe(true);
+
+    errorSpy.mockRestore();
   });
 });

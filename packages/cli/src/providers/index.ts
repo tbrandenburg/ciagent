@@ -3,6 +3,7 @@ import { ClaudeAssistantChat } from './claude.js';
 import { VercelAssistantChat } from './vercel.js';
 import { ReliableAssistantChat } from './reliability.js';
 import { SchemaValidatingChat } from './schema-validating-chat.js';
+import { TestDoubleAssistantChat } from './test-double.js';
 import { mcpProvider } from './mcp.js';
 import { type IAssistantChat } from './types.js';
 import { type CIAConfig, loadStructuredConfig } from '../shared/config/loader.js';
@@ -40,9 +41,19 @@ export async function createAssistantChat(
   const structuredConfig = config ? loadStructuredConfig(config) : undefined;
   const providerConfig = structuredConfig?.providers?.[provider];
   const networkConfig = config?.network;
+  const e2eScenario = process.env.CIA_E2E_SCENARIO;
 
-  // Check if it's a Vercel provider first (extensible pattern)
-  if (VERCEL_PROVIDERS.includes(provider)) {
+  if (process.env.RUN_E2E_TESTS === '1' && e2eScenario) {
+    if (e2eScenario === 'setup-delay-success') {
+      const setupDelayMs = Number(process.env.CIA_E2E_SETUP_DELAY_MS ?? '0');
+      if (setupDelayMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, setupDelayMs));
+      }
+      assistantChat = new TestDoubleAssistantChat('success', process.env);
+    } else {
+      assistantChat = new TestDoubleAssistantChat(e2eScenario, process.env);
+    }
+  } else if (VERCEL_PROVIDERS.includes(provider)) {
     assistantChat = await VercelAssistantChat.create(provider, providerConfig, networkConfig);
   } else if (provider === 'codex') {
     assistantChat = await CodexAssistantChat.create(providerConfig);
