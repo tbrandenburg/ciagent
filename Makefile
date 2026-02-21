@@ -1,8 +1,7 @@
 .PHONY: help install build test test-coverage clean dev lint type-check global-install benchmark validate-bench validate-size validate-docker
 .DEFAULT_GOAL := help
 
-PREFIX ?= /usr/local
-BINDIR ?= $(PREFIX)/bin
+BINDIR ?= $(HOME)/.local/bin
 
 # Colors for help text
 YELLOW := \033[33m
@@ -33,7 +32,7 @@ test-coverage: ## Run tests with coverage report
 build: ## Build CLI binary
 	bun run build
 
-global-install: build ## Install cia binary to $(BINDIR)
+global-install: build ## Install cia binary to $(BINDIR) (user-local)
 	install -d "$(BINDIR)"
 	install -m 755 dist/cia "$(BINDIR)/cia"
 
