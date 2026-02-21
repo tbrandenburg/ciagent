@@ -64,6 +64,17 @@ describe('Help Command', () => {
     expect(allOutput).toContain('--context docs/api.md');
   });
 
+  it('should document explicit configuration precedence without legacy env defaults', () => {
+    printHelpText();
+
+    const allOutput = consoleSpy.mock.calls.flat().join('\n');
+    expect(allOutput).toContain('1. User config: ~/.cia/config.json');
+    expect(allOutput).toContain('2. Repository config: .cia/config.json');
+    expect(allOutput).toContain('3. Command line arguments');
+    expect(allOutput).not.toContain('CIA_PROVIDER');
+    expect(allOutput).not.toContain('CIA_MODEL');
+  });
+
   it('should document exit codes', () => {
     printHelpText();
 

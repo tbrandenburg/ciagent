@@ -58,9 +58,9 @@ export function printHelpText(): void {
   console.log('');
   console.log('PROVIDER CONFIGURATION:');
   console.log('  --endpoint           Custom API endpoint URL');
-  console.log('  --api-key            API key (prefer environment variables)');
+  console.log('  --api-key            API key (prefer .cia/config.json provider options)');
   console.log('  Codex auth file:     ~/.codex/auth.json');
-  console.log('  Claude auth:         `claude /login` or ANTHROPIC_API_KEY');
+  console.log('  Claude auth:         `claude /login` or explicit provider config');
   console.log('');
   console.log('DEBUGGING:');
   console.log('  --log-level          Log level (DEBUG|INFO|WARN|ERROR) [default: INFO]');
@@ -103,12 +103,11 @@ export function printHelpText(): void {
   console.log('');
   console.log('CONFIGURATION:');
   console.log('  Configuration is loaded in this order (later overrides earlier):');
-  console.log('  1. Environment variables (CIA_PROVIDER, CIA_MODEL, etc.)');
-  console.log('  2. User config: ~/.cia/config.json');
-  console.log('  3. Repository config: .cia/config.json');
-  console.log('  4. Command line arguments');
+  console.log('  1. User config: ~/.cia/config.json');
+  console.log('  2. Repository config: .cia/config.json');
+  console.log('  3. Command line arguments');
   console.log('');
-  console.log('  Environment file: ~/.cia/.env');
+  console.log('  Environment file (~/.cia/.env) is used for ${ENV_VAR} substitution only.');
   console.log('');
   console.log('EXIT CODES:');
   console.log('  0  Success');

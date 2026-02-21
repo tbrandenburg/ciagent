@@ -120,7 +120,20 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
     return ExitCode.SUCCESS;
   }
 
-  const config = withDefaults(loadConfig(toCliConfig(values as Record<string, unknown>)));
+  const loadedConfig = loadConfig(toCliConfig(values as Record<string, unknown>));
+  const config = withDefaults(loadedConfig);
+
+  if (!loadedConfig.provider && process.env.CIA_PROVIDER) {
+    const error = CommonErrors.legacyEnvDeprecated('CIA_PROVIDER');
+    printError(error);
+    return error.code;
+  }
+
+  if (!loadedConfig.model && process.env.CIA_MODEL) {
+    const error = CommonErrors.legacyEnvDeprecated('CIA_MODEL');
+    printError(error);
+    return error.code;
+  }
 
   const configValidation = validateConfig(config);
   if (!configValidation.isValid) {
@@ -142,7 +155,9 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
     case 'run':
       return await runCommand(positionals.slice(1), config);
     case 'models':
-      return await modelsCommand(config);
+      return await modelsCommand(
+        loadedConfig.provider ? config : { ...config, provider: undefined }
+      );
     case 'mcp':
       return await mcpCommand(positionals.slice(1), config);
     case 'skills':

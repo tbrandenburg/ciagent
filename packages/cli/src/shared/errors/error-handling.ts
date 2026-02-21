@@ -63,7 +63,15 @@ export const CommonErrors = {
       ExitCode.AUTH_CONFIG,
       'Provider is required',
       'Only provider=codex is supported',
-      'Set --provider=codex or CIA_PROVIDER=codex'
+      'Set --provider=codex or configure provider in .cia/config.json'
+    ),
+
+  legacyEnvDeprecated: (envVar: string): CliError =>
+    createError(
+      ExitCode.AUTH_CONFIG,
+      `Legacy environment variable is no longer supported: ${envVar}`,
+      'Configuration must come from CLI flags or .cia/config.json',
+      'Remove legacy env usage and migrate using docs/legacy-env-migration.md'
     ),
 
   authConfig: (details: string): CliError =>

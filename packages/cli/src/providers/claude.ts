@@ -22,7 +22,21 @@ interface ClaudeQueryMessage {
   session_id?: string;
 }
 
-function buildSubprocessEnv(network?: CIAConfig['network']): Record<string, string | undefined> {
+function buildSubprocessEnv(
+  network?: CIAConfig['network'],
+  explicitApiKey?: string
+): Record<string, string | undefined> {
+  if (explicitApiKey) {
+    return applyNetworkEnv(
+      {
+        ...process.env,
+        CLAUDE_API_KEY: explicitApiKey,
+        ANTHROPIC_API_KEY: explicitApiKey,
+      },
+      network
+    );
+  }
+
   const globalAuthSetting = process.env.CLAUDE_USE_GLOBAL_AUTH?.toLowerCase();
 
   const hasExplicitTokens = Boolean(
@@ -82,10 +96,16 @@ export class ClaudeAssistantChat implements IAssistantChat {
     options: Record<string, unknown>;
   }) => AsyncIterable<ClaudeQueryMessage>;
   private readonly network?: CIAConfig['network'];
+  private readonly apiKey?: string;
 
-  private constructor(query: ClaudeAssistantChat['query'], network?: CIAConfig['network']) {
+  private constructor(
+    query: ClaudeAssistantChat['query'],
+    network?: CIAConfig['network'],
+    apiKey?: string
+  ) {
     this.query = query;
     this.network = network;
+    this.apiKey = apiKey;
   }
 
   static async create(
@@ -111,7 +131,12 @@ export class ClaudeAssistantChat implements IAssistantChat {
       );
     }
 
-    return new ClaudeAssistantChat(claudeSdk.query, network);
+    const explicitApiKey =
+      typeof config?.apiKey === 'string' && config.apiKey.trim().length > 0
+        ? config.apiKey.trim()
+        : undefined;
+
+    return new ClaudeAssistantChat(claudeSdk.query, network, explicitApiKey);
   }
 
   private resolvePrompt(input: string | Message[]): string {
@@ -129,7 +154,7 @@ export class ClaudeAssistantChat implements IAssistantChat {
     const prompt = this.resolvePrompt(input);
     const options: Record<string, unknown> = {
       cwd,
-      env: buildSubprocessEnv(this.network),
+      env: buildSubprocessEnv(this.network, this.apiKey),
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       systemPrompt: { type: 'preset', preset: 'claude_code' },
@@ -169,7 +194,7 @@ export class ClaudeAssistantChat implements IAssistantChat {
       const Anthropic = (await import('@anthropic-ai/sdk')).default;
 
       // Get API key from environment (matching existing auth pattern)
-      const apiKey = process.env.CLAUDE_API_KEY ?? process.env.ANTHROPIC_API_KEY;
+      const apiKey = this.apiKey ?? process.env.CLAUDE_API_KEY ?? process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
         // Return empty array if no API key - provider discovery will handle gracefully
         return [];
