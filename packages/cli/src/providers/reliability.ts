@@ -130,18 +130,27 @@ export class ReliableAssistantChat implements IAssistantChat {
         yield chunk;
       }
     } catch (error) {
+      const formatChunkError = (message: string, details?: string): string =>
+        details && details.trim().length > 0 ? `${message}: ${details}` : message;
+
       // Check if we marked this as non-retryable
       if (isNonRetryableError) {
         // Non-retryable errors
         const providerError = CommonErrors.providerUnreliable(this.getType(), finalErrorMessage);
-        yield { type: 'error', content: providerError.message };
+        yield {
+          type: 'error',
+          content: formatChunkError(providerError.message, providerError.details),
+        };
       } else {
         // Retry exhausted
         const retryError = CommonErrors.retryExhausted(
           maxRetries,
           error instanceof Error ? error.message : String(error)
         );
-        yield { type: 'error', content: retryError.message };
+        yield {
+          type: 'error',
+          content: formatChunkError(retryError.message, retryError.details),
+        };
       }
     } finally {
       clearTimeout(retryWindowTimeout);
@@ -152,6 +161,13 @@ export class ReliableAssistantChat implements IAssistantChat {
     const nonRetryablePatterns = [
       'authentication',
       'unauthorized',
+      'authorization',
+      'forbidden',
+      'permission',
+      'access denied',
+      'invalid api key',
+      'model',
+      'does not exist',
       '401',
       'not found',
       '404',
