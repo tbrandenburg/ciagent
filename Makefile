@@ -1,4 +1,4 @@
-.PHONY: help install build test test-coverage clean dev lint type-check global-install
+.PHONY: help install build test test-coverage clean dev lint type-check global-install benchmark validate-bench
 .DEFAULT_GOAL := help
 
 PREFIX ?= /usr/local
@@ -57,6 +57,14 @@ validate-l4: ## Level 4: Binary validation
 	bun run build
 	./dist/cia --help
 	./dist/cia --version
+
+benchmark: ## Run CLI startup benchmark and collect metrics
+	bash scripts/benchmarks/run-cli-startup.sh
+	bun scripts/benchmarks/collect-metrics.ts --input test-results/benchmarks/raw.json --output test-results/benchmarks/summary.json
+
+validate-bench: ## Validate benchmark tests and benchmark harness
+	npx vitest --run packages/cli/tests/benchmarks/*.test.ts
+	$(MAKE) benchmark
 
 validate-all: validate-l1 validate-l2 validate-l3 validate-l4 ## Run all validation levels
 
