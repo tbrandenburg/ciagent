@@ -230,7 +230,7 @@ We purster a test coverage of >=40% in early stages of the project.
 | 8 | Enterprise network support | HTTP proxy and custom CA bundle support | complete | with 6, 7.1, 7.5 | 3c, 4 | .claude/PRPs/plans/enterprise-network-support.plan.md |
 | 9 | Streaming output (v2+) | Stdout writer for AsyncGenerator chunks | complete | with 8 | 7.6 | .claude/PRPs/plans/completed/phase-9-reliability-timeout-resilience.plan.md |
 | 10 | Testing & benchmarks | Vitest suite, Pi 3/Bun performance benchmarks | complete | - | 9 | .claude/PRPs/plans/completed/testing-benchmarks.plan.md |
-| 11 | Packaging & docs | Bun binary, Docker image, README with examples | pending | - | 10 | - |
+| 11 | Packaging & docs | Bun binary, Docker image, README with examples | in-progress | - | 10 | .claude/PRPs/plans/packaging-and-docs.plan.md |
 | 12 | Legacy cleanup | Remove deprecated environment variable support | pending | - | 11 | - |
 
 ### Phase Details
