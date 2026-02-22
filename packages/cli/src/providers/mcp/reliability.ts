@@ -52,7 +52,7 @@ const TRANSIENT_MESSAGES = [
  * Determines if an error is transient and should be retried
  */
 function isTransientError(error: unknown): boolean {
-  if (!error) return false;
+  if (!error) {return false;}
   const message = String(error instanceof Error ? error.message : error).toLowerCase();
   return TRANSIENT_MESSAGES.some(m => message.includes(m));
 }
@@ -93,7 +93,7 @@ export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {})
       return await fn();
     } catch (error) {
       lastError = error;
-      if (attempt === attempts - 1 || !retryIf(error)) throw error;
+      if (attempt === attempts - 1 || !retryIf(error)) {throw error;}
 
       // Calculate exponential backoff delay
       const wait = Math.min(delay * Math.pow(factor, attempt), maxDelay);
@@ -130,7 +130,7 @@ export class MCPConnectionMonitor {
    * Start monitoring MCP connections
    */
   startMonitoring(): void {
-    if (this.monitoringInterval) return;
+    if (this.monitoringInterval) {return;}
 
     this.monitoringInterval = setInterval(() => {
       this.checkAllConnections();
@@ -191,7 +191,7 @@ export class MCPConnectionMonitor {
    */
   isHealthy(serverId: string): boolean {
     const health = this.healthStatus.get(serverId);
-    if (!health) return false;
+    if (!health) {return false;}
 
     // Consider unhealthy if error count exceeds threshold or last check was too long ago
     const maxErrors = 3;

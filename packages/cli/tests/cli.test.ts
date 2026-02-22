@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { main } from '../src/cli.js';
+import { main, withDefaults } from '../src/cli.js';
 
 describe('CLI Main', () => {
   let logSpy: any;
@@ -76,5 +76,104 @@ describe('CLI Main', () => {
     const exitCode = await main(['models', '--format=json']);
     expect(exitCode).toBe(0);
     expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"models"'));
+  });
+});
+
+describe('Context-aware retry defaults', () => {
+  let originalStdinIsTTY: boolean;
+  let originalStdoutIsTTY: boolean;
+  let originalCiEnvVars: Record<string, string | undefined> = {};
+
+  // CI environment variables that isInteractiveContext() checks
+  const ciEnvironments = [
+    'CI',
+    'CONTINUOUS_INTEGRATION',
+    'GITHUB_ACTIONS',
+    'GITLAB_CI',
+    'JENKINS_URL',
+    'BUILDKITE',
+    'CIRCLECI',
+    'TRAVIS',
+    'APPVEYOR',
+  ];
+
+  beforeEach(() => {
+    // Save original values
+    originalStdinIsTTY = process.stdin.isTTY;
+    originalStdoutIsTTY = process.stdout.isTTY;
+
+    // Save all CI environment variables
+    for (const envVar of ciEnvironments) {
+      originalCiEnvVars[envVar] = process.env[envVar];
+    }
+  });
+
+  afterEach(() => {
+    // Restore original values
+    (process.stdin as any).isTTY = originalStdinIsTTY;
+    (process.stdout as any).isTTY = originalStdoutIsTTY;
+
+    // Restore all CI environment variables
+    for (const envVar of ciEnvironments) {
+      if (originalCiEnvVars[envVar] !== undefined) {
+        process.env[envVar] = originalCiEnvVars[envVar];
+      } else {
+        delete process.env[envVar];
+      }
+    }
+  });
+
+  it('should default to 0 retries in interactive context', () => {
+    // Mock interactive environment
+    (process.stdin as any).isTTY = true;
+    (process.stdout as any).isTTY = true;
+
+    // Clear all CI environment variables
+    for (const envVar of ciEnvironments) {
+      delete process.env[envVar];
+    }
+
+    const config = withDefaults({});
+    expect(config.retries).toBe(0);
+  });
+
+  it('should default to 1 retry in CI context', () => {
+    // Mock CI environment
+    (process.stdin as any).isTTY = true;
+    (process.stdout as any).isTTY = true;
+    process.env.CI = 'true';
+
+    const config = withDefaults({});
+    expect(config.retries).toBe(1);
+
+    delete process.env.CI;
+  });
+
+  it('should default to 1 retry in non-TTY context', () => {
+    // Mock non-interactive (piped) environment
+    (process.stdin as any).isTTY = false;
+    (process.stdout as any).isTTY = true;
+
+    // Clear all CI environment variables
+    for (const envVar of ciEnvironments) {
+      delete process.env[envVar];
+    }
+
+    const config = withDefaults({});
+    expect(config.retries).toBe(1);
+  });
+
+  it('should preserve explicit retry configuration', () => {
+    // Mock interactive environment
+    (process.stdin as any).isTTY = true;
+    (process.stdout as any).isTTY = true;
+
+    // Clear all CI environment variables
+    for (const envVar of ciEnvironments) {
+      delete process.env[envVar];
+    }
+
+    const config = withDefaults({ retries: 5 });
+    expect(config.retries).toBe(5);
   });
 });

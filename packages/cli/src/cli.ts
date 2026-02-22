@@ -2,7 +2,7 @@
 
 import { parseArgs } from 'util';
 import { ExitCode } from './utils/exit-codes.js';
-import { loadConfig, type CIAConfig } from './shared/config/loader.js';
+import { loadConfig, type CIAConfig, isInteractiveContext } from './shared/config/loader.js';
 import { validateConfig } from './shared/validation/validation.js';
 import { CommonErrors, printError, handleUnexpectedError } from './shared/errors/error-handling.js';
 import { runCommand } from './commands/run.js';
@@ -172,12 +172,15 @@ export async function main(args: string[] = process.argv.slice(2)): Promise<numb
   }
 }
 
-function withDefaults(config: CIAConfig): CIAConfig {
+export function withDefaults(config: CIAConfig): CIAConfig {
+  // Smart default: 0 retries for interactive usage, 1 for CI/automation
+  const defaultRetries = isInteractiveContext() ? 0 : 1;
+
   return {
     mode: config.mode ?? 'lazy',
     format: config.format ?? 'default',
     provider: config.provider ?? 'codex',
-    retries: config.retries ?? 1,
+    retries: config.retries ?? defaultRetries,
     'retry-backoff': config['retry-backoff'] ?? true,
     timeout: config.timeout ?? 60,
     'log-level': config['log-level'] ?? 'INFO',
