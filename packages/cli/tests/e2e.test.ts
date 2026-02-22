@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const shouldRunE2ETests = process.env.RUN_E2E_TESTS === '1';
+const shouldRunRealCodexE2E = process.env.RUN_REAL_CODEX_E2E === '1';
 
 describe('CLI E2E (Smoke)', () => {
   const testDir = '/tmp/cia-e2e-test';
@@ -39,14 +40,23 @@ describe('CLI E2E (Smoke)', () => {
     if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
   });
 
-  const runCLI = (args: string[], options: { cwd?: string } = {}) => {
+  const runCLI = (
+    args: string[],
+    options: { cwd?: string; env?: Record<string, string>; useRealHome?: boolean } = {}
+  ) => {
     return new Promise<{ exitCode: number | null; stdout: string; stderr: string }>(
       (resolve, reject) => {
+        if (!binaryPath) {
+          reject(new Error('E2E binary not found. Build it first with `bun run build`.'));
+          return;
+        }
+
         const child = spawn(binaryPath, args, {
           cwd: options.cwd || process.cwd(),
           env: {
             ...process.env,
-            HOME: testDir,
+            HOME: options.useRealHome ? process.env.HOME : testDir,
+            ...options.env,
           },
           stdio: ['pipe', 'pipe', 'pipe'],
         });
@@ -105,5 +115,27 @@ describe('CLI E2E (Smoke)', () => {
     const result = await runCLI(['run', 'Hello world', '--provider=codex', '--model=gpt-4']);
     expect(result.exitCode).toBe(3);
     expect(result.stderr).toContain('Authentication/configuration error');
+  });
+
+  it('returns assistant output for a real codex run', async () => {
+    if (!shouldRunE2ETests) return;
+    if (!shouldRunRealCodexE2E) {
+      console.log('Skipping real Codex E2E. Set RUN_REAL_CODEX_E2E=1 to run it.');
+      return;
+    }
+
+    const codexAuthPath = resolve(process.env.HOME || '', '.codex', 'auth.json');
+    if (!existsSync(codexAuthPath)) {
+      console.log(`Skipping real Codex E2E. Auth not found at ${codexAuthPath}`);
+      return;
+    }
+
+    const result = await runCLI(['run', 'Test', '--provider=codex'], {
+      useRealHome: true,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.length).toBeGreaterThan(0);
+    expect(result.stderr).not.toContain('Authentication/configuration error');
   });
 });

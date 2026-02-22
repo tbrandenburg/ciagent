@@ -41,7 +41,6 @@ export async function createAssistantChat(
   const providerConfig = structuredConfig?.providers?.[provider];
   const networkConfig = config?.network;
 
-  // Check if it's a Vercel provider first (extensible pattern)
   if (VERCEL_PROVIDERS.includes(provider)) {
     assistantChat = await VercelAssistantChat.create(provider, providerConfig, networkConfig);
   } else if (provider === 'codex') {
