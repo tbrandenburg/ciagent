@@ -85,11 +85,11 @@ describe('Provider Factory', () => {
       provider: 'codex',
     };
 
-    const provider = await createAssistantChat('codex', config);
+    const assistant = await createAssistantChat('codex', config);
 
-    expect(provider.getType()).toBe('codex');
-    expect(provider).not.toBeInstanceOf(SchemaValidatingChat);
-    expect(provider).not.toBeInstanceOf(ReliableAssistantChat);
+    expect(assistant.getType()).toBe('codex');
+    expect(assistant).not.toBeInstanceOf(SchemaValidatingChat);
+    expect(assistant).not.toBeInstanceOf(ReliableAssistantChat);
   });
 
   it('forwards top-level model to codex provider config', async () => {

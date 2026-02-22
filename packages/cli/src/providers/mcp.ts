@@ -23,6 +23,13 @@ export class MCPProvider {
   }
 
   /**
+   * Check if the MCP provider is initialized
+   */
+  get isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  /**
    * Initialize the MCP provider with configuration
    */
   async initialize(config?: CIAConfig): Promise<void> {
