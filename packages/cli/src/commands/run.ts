@@ -550,8 +550,20 @@ async function emitStatusMessages(config: CIAConfig): Promise<void> {
 
   // Check MCP status
   if (mcpServerCount > 0) {
+    // Check if MCP is already initialized to avoid redundant async call
+    if (!mcpProvider.isInitialized) {
+      try {
+        await mcpProvider.initialize(config);
+      } catch (error) {
+        console.log(
+          '[Status] MCP initialization failed:',
+          error instanceof Error ? error.message : String(error)
+        );
+        return; // Skip MCP status if initialization failed
+      }
+    }
+
     try {
-      await mcpProvider.initialize(config);
       const mcpStatusChunk = mcpProvider.getStatusChunk();
 
       if (mcpStatusChunk.type === 'mcp_aggregate_status') {
@@ -570,7 +582,7 @@ async function emitStatusMessages(config: CIAConfig): Promise<void> {
       }
     } catch (error) {
       console.log(
-        '[Status] MCP initialization failed:',
+        '[Status] MCP status retrieval failed:',
         error instanceof Error ? error.message : String(error)
       );
     }
