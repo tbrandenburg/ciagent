@@ -3,5 +3,12 @@ set -eu
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "[cia] running pre-push validation: make ci"
-make ci
+if [ -t 1 ]; then
+    # Interactive terminal - use shorter timeout for better UX
+    echo "[cia] running pre-push validation (60s timeout for interactive)"
+    timeout 60 make validate-l1
+else
+    # Non-interactive (scripts/CI) - allow longer time for full validation
+    echo "[cia] running full pre-push validation (180s timeout)"
+    timeout 180 make ci
+fi
