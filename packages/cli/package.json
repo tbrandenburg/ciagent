@@ -22,7 +22,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.7",
     "@anthropic-ai/sdk": "^0.74.0",
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "@openai/codex-sdk": "^0.87.0",
+    "@openai/codex-sdk": "^0.104.0",
     "@types/node": "^25.2.3",
     "ai": "^6.0.86",
     "ajv": "8.18.0",

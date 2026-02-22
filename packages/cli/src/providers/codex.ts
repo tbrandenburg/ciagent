@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
+import { createRequire } from 'module';
 import { resolve } from 'path';
 import { type ChatChunk, type IAssistantChat, type Message } from './types.js';
 
@@ -8,13 +9,6 @@ interface ProviderConfig {
   apiKey?: string;
   timeout?: number;
   [key: string]: unknown;
-}
-
-interface CodexAuth {
-  tokens?: {
-    id_token?: string;
-    access_token?: string;
-  };
 }
 
 export class CodexAssistantChat implements IAssistantChat {
@@ -59,19 +53,16 @@ export class CodexAssistantChat implements IAssistantChat {
       throw new Error(`Codex auth file not found: ${authPath}`);
     }
 
-    const authRaw = readFileSync(authPath, 'utf8');
-    const auth = JSON.parse(authRaw) as CodexAuth;
-    const idToken = auth.tokens?.id_token;
-    const accessToken = auth.tokens?.access_token;
-
-    if (!idToken || !accessToken) {
+    try {
+      const authRaw = readFileSync(authPath, 'utf8');
+      JSON.parse(authRaw);
+    } catch {
       throw new Error(`Invalid Codex auth file: ${authPath}`);
     }
 
-    process.env.CODEX_ID_TOKEN = idToken;
-    process.env.CODEX_ACCESS_TOKEN = accessToken;
-
-    let codexModule: { Codex: new () => CodexAssistantChat['codex'] };
+    let codexModule: {
+      Codex: new (options?: { baseUrl?: string; apiKey?: string }) => CodexAssistantChat['codex'];
+    };
 
     try {
       codexModule = (await import('@openai/codex-sdk')) as {
@@ -83,7 +74,17 @@ export class CodexAssistantChat implements IAssistantChat {
       );
     }
 
-    return new CodexAssistantChat(new codexModule.Codex(), configuredModel);
+    if (process.env.DEBUG) {
+      const sdkVersion = getCodexSdkVersion() ?? 'unknown';
+      console.error(`[Codex] SDK ${sdkVersion}; binary: bundled @openai/codex-sdk`);
+    }
+
+    const codexOptions = {
+      ...(typeof config?.baseUrl === 'string' ? { baseUrl: config.baseUrl } : {}),
+      ...(typeof config?.apiKey === 'string' ? { apiKey: config.apiKey } : {}),
+    };
+
+    return new CodexAssistantChat(new codexModule.Codex(codexOptions), configuredModel);
   }
 
   private resolvePrompt(input: string | Message[]): string {
@@ -182,5 +183,15 @@ export class CodexAssistantChat implements IAssistantChat {
       // If any error occurs, return fallback models
       return ['gpt-5.3-codex'];
     }
+  }
+}
+
+function getCodexSdkVersion(): string | undefined {
+  try {
+    const require = createRequire(import.meta.url);
+    const pkg = require('@openai/codex-sdk/package.json') as { version?: string };
+    return pkg.version;
+  } catch {
+    return undefined;
   }
 }
