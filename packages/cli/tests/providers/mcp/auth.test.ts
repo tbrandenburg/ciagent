@@ -6,16 +6,23 @@ import {
 } from '../../../src/providers/mcp/auth.ts';
 import { MCPRemoteServerConfig } from '../../../src/shared/config/schema.ts';
 
+// Hoist all mock functions to prevent initialization order issues with vitest
+const mockOpen = vi.hoisted(() => vi.fn());
+const mockAuthorizeURL = vi.hoisted(() => vi.fn());
+const mockGetToken = vi.hoisted(() => vi.fn());
+const mockCreateToken = vi.hoisted(() => vi.fn());
+const mockRefresh = vi.hoisted(() => vi.fn());
+const mockDiscoverOAuthMetadata = vi.hoisted(() => vi.fn());
+const mockExistsSync = vi.hoisted(() => vi.fn());
+const mockMkdirSync = vi.hoisted(() => vi.fn());
+const mockWriteFileSync = vi.hoisted(() => vi.fn());
+const mockReadFileSync = vi.hoisted(() => vi.fn());
+const mockUnlinkSync = vi.hoisted(() => vi.fn());
+
 // Mock external dependencies
-const mockOpen = vi.fn();
 vi.mock('open', () => ({
   default: mockOpen,
 }));
-
-const mockAuthorizeURL = vi.fn();
-const mockGetToken = vi.fn();
-const mockCreateToken = vi.fn();
-const mockRefresh = vi.fn();
 
 vi.mock('simple-oauth2', () => ({
   AuthorizationCode: vi.fn().mockImplementation(() => ({
@@ -25,18 +32,11 @@ vi.mock('simple-oauth2', () => ({
   })),
 }));
 
-const mockDiscoverOAuthMetadata = vi.fn();
 vi.mock('@modelcontextprotocol/sdk/client/auth.js', () => ({
   discoverOAuthMetadata: mockDiscoverOAuthMetadata,
 }));
 
 // Mock fs operations
-const mockExistsSync = vi.fn();
-const mockMkdirSync = vi.fn();
-const mockWriteFileSync = vi.fn();
-const mockReadFileSync = vi.fn();
-const mockUnlinkSync = vi.fn();
-
 vi.mock('node:fs', () => ({
   existsSync: mockExistsSync,
   mkdirSync: mockMkdirSync,
