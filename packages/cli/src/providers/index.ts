@@ -38,15 +38,23 @@ export async function createAssistantChat(
 
   // Load structured configuration with environment variable substitution
   const structuredConfig = config ? loadStructuredConfig(config) : undefined;
-  const providerConfig = structuredConfig?.providers?.[provider];
+  const providerConfig = structuredConfig?.providers?.[provider] ?? {};
+  const effectiveProviderConfig = {
+    ...providerConfig,
+    ...(config?.model ? { model: extractModelForProvider(provider, config.model) } : {}),
+  };
   const networkConfig = config?.network;
 
   if (VERCEL_PROVIDERS.includes(provider)) {
-    assistantChat = await VercelAssistantChat.create(provider, providerConfig, networkConfig);
+    assistantChat = await VercelAssistantChat.create(
+      provider,
+      effectiveProviderConfig,
+      networkConfig
+    );
   } else if (provider === 'codex') {
-    assistantChat = await CodexAssistantChat.create(providerConfig);
+    assistantChat = await CodexAssistantChat.create(effectiveProviderConfig);
   } else if (provider === 'claude') {
-    assistantChat = await ClaudeAssistantChat.create(providerConfig, networkConfig);
+    assistantChat = await ClaudeAssistantChat.create(effectiveProviderConfig, networkConfig);
   } else {
     const allSupportedProviders = [...VERCEL_PROVIDERS, 'codex', 'claude'];
     throw new Error(
@@ -111,6 +119,15 @@ function loadSchemaFromConfig(config: CIAConfig): JSONSchema7 {
  */
 export function getSupportedProviders(): string[] {
   return [...VERCEL_PROVIDERS, 'codex', 'claude'];
+}
+
+function extractModelForProvider(provider: string, rawModel: string): string | undefined {
+  if (rawModel.includes('/')) {
+    const [modelProvider, modelName] = rawModel.split('/', 2);
+    return modelProvider === provider ? modelName : undefined;
+  }
+
+  return rawModel;
 }
 
 /**

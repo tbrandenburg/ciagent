@@ -138,4 +138,26 @@ describe('CLI E2E (Smoke)', () => {
     expect(result.stdout.length).toBeGreaterThan(0);
     expect(result.stderr).not.toContain('Authentication/configuration error');
   });
+
+  it('returns assistant output for a real codex run with explicit model', async () => {
+    if (!shouldRunE2ETests) return;
+    if (!shouldRunRealCodexE2E) {
+      console.log('Skipping real Codex E2E. Set RUN_REAL_CODEX_E2E=1 to run it.');
+      return;
+    }
+
+    const codexAuthPath = resolve(process.env.HOME || '', '.codex', 'auth.json');
+    if (!existsSync(codexAuthPath)) {
+      console.log(`Skipping real Codex E2E. Auth not found at ${codexAuthPath}`);
+      return;
+    }
+
+    const result = await runCLI(['run', 'Test', '--provider=codex', '--model=gpt-5.3-codex'], {
+      useRealHome: true,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.length).toBeGreaterThan(0);
+    expect(result.stderr).not.toContain('Authentication/configuration error');
+  });
 });

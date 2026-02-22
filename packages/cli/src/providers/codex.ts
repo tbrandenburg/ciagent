@@ -36,13 +36,18 @@ export class CodexAssistantChat implements IAssistantChat {
     };
   };
 
-  private constructor(codex: CodexAssistantChat['codex']) {
+  private readonly model?: string;
+
+  private constructor(codex: CodexAssistantChat['codex'], model?: string) {
     this.codex = codex;
+    this.model = model;
   }
 
   static async create(config?: ProviderConfig): Promise<CodexAssistantChat> {
-    // TODO: Use config.baseUrl, config.apiKey, config.timeout, config.model in future iterations
-    void config; // Acknowledge config parameter for interface compatibility
+    const configuredModel =
+      typeof config?.model === 'string' && config.model.trim().length > 0
+        ? config.model.trim()
+        : undefined;
 
     const homeDir = process.env.HOME;
     if (!homeDir) {
@@ -78,7 +83,7 @@ export class CodexAssistantChat implements IAssistantChat {
       );
     }
 
-    return new CodexAssistantChat(new codexModule.Codex());
+    return new CodexAssistantChat(new codexModule.Codex(), configuredModel);
   }
 
   private resolvePrompt(input: string | Message[]): string {
@@ -100,6 +105,7 @@ export class CodexAssistantChat implements IAssistantChat {
       sandboxMode: 'danger-full-access',
       networkAccessEnabled: true,
       approvalPolicy: 'never',
+      ...(this.model ? { model: this.model } : {}),
     };
 
     let thread;
@@ -171,10 +177,10 @@ export class CodexAssistantChat implements IAssistantChat {
         return await (this.codex as any).listModels();
       }
       // Fallback to known Codex models
-      return ['codex-v1'];
+      return ['gpt-5.3-codex'];
     } catch {
       // If any error occurs, return fallback models
-      return ['codex-v1'];
+      return ['gpt-5.3-codex'];
     }
   }
 }

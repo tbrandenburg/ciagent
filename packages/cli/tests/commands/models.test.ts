@@ -48,7 +48,7 @@ describe('modelsCommand', () => {
   });
 
   it('returns models from all providers when no provider filter specified', async () => {
-    const codexMock = createMockAssistantChat(['codex-v1'], 'codex');
+    const codexMock = createMockAssistantChat(['gpt-5.3-codex'], 'codex');
     const claudeMock = createMockAssistantChat(['claude-3-5-sonnet'], 'claude');
     const azureMock = createMockAssistantChat(['gpt-4o'], 'azure');
 
@@ -80,7 +80,7 @@ describe('modelsCommand', () => {
     expect(createAssistantChatSpy).toHaveBeenCalledTimes(3);
     expect(logSpy).toHaveBeenCalledWith('azure/gpt-4o');
     expect(logSpy).toHaveBeenCalledWith('claude/claude-3-5-sonnet');
-    expect(logSpy).toHaveBeenCalledWith('codex/codex-v1');
+    expect(logSpy).toHaveBeenCalledWith('codex/gpt-5.3-codex');
   });
 
   it('handles provider failure gracefully', async () => {
