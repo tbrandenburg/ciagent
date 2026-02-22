@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createAssistantChat } from '../../src/providers/index.js';
+import { CodexAssistantChat } from '../../src/providers/codex.js';
 import { SchemaValidatingChat } from '../../src/providers/schema-validating-chat.js';
 import { ReliableAssistantChat } from '../../src/providers/reliability.js';
 import { CIAConfig } from '../../src/shared/config/loader.js';
@@ -88,6 +89,59 @@ describe('Provider Factory', () => {
     expect(provider.getType()).toBe('codex');
     expect(provider).not.toBeInstanceOf(SchemaValidatingChat);
     expect(provider).not.toBeInstanceOf(ReliableAssistantChat);
+  });
+
+  it('forwards top-level model to codex provider config', async () => {
+    const codexCreateSpy = vi.spyOn(CodexAssistantChat, 'create').mockResolvedValue({
+      getType: () => 'codex',
+      sendQuery: vi.fn() as any,
+    } as CodexAssistantChat);
+
+    const config: CIAConfig = {
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+    };
+
+    await createAssistantChat('codex', config);
+
+    expect(codexCreateSpy).toHaveBeenCalledWith({ model: 'gpt-5.3-codex' });
+  });
+
+  it('supports provider/model syntax and strips provider prefix', async () => {
+    const codexCreateSpy = vi.spyOn(CodexAssistantChat, 'create').mockResolvedValue({
+      getType: () => 'codex',
+      sendQuery: vi.fn() as any,
+    } as CodexAssistantChat);
+
+    const config: CIAConfig = {
+      provider: 'codex',
+      model: 'codex/gpt-5.3-codex',
+    };
+
+    await createAssistantChat('codex', config);
+
+    expect(codexCreateSpy).toHaveBeenCalledWith({ model: 'gpt-5.3-codex' });
+  });
+
+  it('does not override provider model when top-level model targets another provider', async () => {
+    const codexCreateSpy = vi.spyOn(CodexAssistantChat, 'create').mockResolvedValue({
+      getType: () => 'codex',
+      sendQuery: vi.fn() as any,
+    } as CodexAssistantChat);
+
+    const config: CIAConfig = {
+      provider: 'codex',
+      model: 'openai/gpt-4o',
+      providers: {
+        codex: {
+          model: 'gpt-5.3-codex',
+        },
+      },
+    };
+
+    await createAssistantChat('codex', config);
+
+    expect(codexCreateSpy).toHaveBeenCalledWith({ model: 'gpt-5.3-codex' });
   });
 
   it('should wrap with SchemaValidatingChat when mode is strict with schema-inline', async () => {

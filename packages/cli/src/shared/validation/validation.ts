@@ -212,11 +212,14 @@ export function validateModel(model?: string): ValidationResult {
     return { isValid: false, errors: ['Model is required'] };
   }
 
-  if (!/^[a-zA-Z0-9\-\.]+$/.test(model)) {
+  const plainModel = /^[a-zA-Z0-9\-\.]+$/;
+  const providerModel = /^[a-zA-Z0-9\-\.]+\/[a-zA-Z0-9\-\.]+$/;
+
+  if (!plainModel.test(model) && !providerModel.test(model)) {
     return {
       isValid: false,
       errors: [
-        `Invalid model name format: ${model}. Must contain only alphanumeric characters, dashes, and dots.`,
+        `Invalid model name format: ${model}. Use 'model' or 'provider/model' with alphanumeric characters, dashes, and dots.`,
       ],
     };
   }

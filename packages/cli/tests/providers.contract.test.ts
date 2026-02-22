@@ -14,11 +14,14 @@ const ALLOWED_CHUNK_TYPES = new Set<ChatChunk['type']>([
 
 const testHome = '/tmp/cia-provider-contract-tests';
 const originalHome = process.env.HOME;
+let capturedCodexThreadOptions: Record<string, unknown> | undefined;
 
 function mockProviderSdks(): void {
+  capturedCodexThreadOptions = undefined;
   vi.mock('@openai/codex-sdk', () => ({
     Codex: class {
-      startThread() {
+      startThread(options: Record<string, unknown>) {
+        capturedCodexThreadOptions = options;
         return {
           id: 'codex-session-123',
           runStreamed: async () => ({
@@ -32,7 +35,8 @@ function mockProviderSdks(): void {
         };
       }
 
-      resumeThread(sessionId: string) {
+      resumeThread(sessionId: string, options: Record<string, unknown>) {
+        capturedCodexThreadOptions = options;
         return {
           id: sessionId,
           runStreamed: async () => ({ events: (async function* () {})() }),
@@ -176,6 +180,20 @@ describe('providers contract', () => {
     expect(codexResult?.sessionId).toBeTruthy();
     expect(claudeResult?.sessionId).toBeTruthy();
     expect(azureResult?.sessionId).toBeTruthy();
+  });
+
+  it('passes model into codex thread options for runStreamed path', async () => {
+    mockProviderSdks();
+    const { createAssistantChat } = await import('../src/providers/index.js');
+
+    const codex = await createAssistantChat('codex', {
+      provider: 'codex',
+      model: 'gpt-5.3-codex',
+    });
+
+    await collectChunks(codex.sendQuery('prompt', '/tmp'));
+
+    expect(capturedCodexThreadOptions).toMatchObject({ model: 'gpt-5.3-codex' });
   });
 
   describe('interface overloading support', () => {
