@@ -228,6 +228,15 @@ export class ReliableAssistantChat implements IAssistantChat {
       'not found',
       '404',
       'contract validation failed',
+      // Quota and billing related (non-recoverable)
+      'quota exceeded',
+      'usage limit',
+      'insufficient_quota',
+      'rate limit',
+      'billing',
+      'payment',
+      'subscription',
+      'credits',
     ];
 
     const lowerMessage = message.toLowerCase();

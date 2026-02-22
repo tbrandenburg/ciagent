@@ -330,6 +330,33 @@ describe('ReliableAssistantChat', () => {
       expect(chunks[0].content).toContain('Provider failed after 3 retry attempts');
       expect(duration).toBeLessThan(maxRetryBudgetMs(3, 600));
     });
+
+    it('should not retry quota exceeded errors', async () => {
+      mockProvider.setShouldThrow(true, 'Request failed: quota exceeded for your account');
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].type).toBe('error');
+      expect(chunks[0].content).toContain("Provider 'reliable-mock-provider' reliability issue");
+      expect(mockProvider.getCallCount()).toBe(1); // Should not retry
+    });
+
+    it('should not retry usage limit errors', async () => {
+      mockProvider.setShouldThrow(true, 'usage limit exceeded, please upgrade your plan');
+
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of reliableProvider.sendQuery('test prompt', '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(1);
+      expect(chunks[0].type).toBe('error');
+      expect(mockProvider.getCallCount()).toBe(1); // Should not retry
+    });
   });
 
   describe('Contract Validation', () => {
