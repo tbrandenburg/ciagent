@@ -174,7 +174,13 @@ describe('Input Validation', () => {
 
   describe('validateModel', () => {
     it('should accept valid model names', () => {
-      const validModels = ['gpt-4', 'gpt-3.5-turbo', 'claude-3-sonnet', 'gemini-pro'];
+      const validModels = [
+        'gpt-4',
+        'gpt-3.5-turbo',
+        'claude-3-sonnet',
+        'gemini-pro',
+        'codex/gpt-5.3-codex',
+      ];
       validModels.forEach(model => {
         const result = validateModel(model);
         expect(result.isValid).toBe(true);
@@ -185,7 +191,7 @@ describe('Input Validation', () => {
       const result = validateModel('invalid model name!');
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
-        'Invalid model name format: invalid model name!. Must contain only alphanumeric characters, dashes, and dots.'
+        "Invalid model name format: invalid model name!. Use 'model' or 'provider/model' with alphanumeric characters, dashes, and dots."
       );
     });
 
