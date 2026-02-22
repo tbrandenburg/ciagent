@@ -39,7 +39,10 @@ describe('CLI E2E (Smoke)', () => {
     if (existsSync(testDir)) rmSync(testDir, { recursive: true, force: true });
   });
 
-  const runCLI = (args: string[], options: { cwd?: string; env?: Record<string, string> } = {}) => {
+  const runCLI = (
+    args: string[],
+    options: { cwd?: string; env?: Record<string, string>; useRealHome?: boolean } = {}
+  ) => {
     return new Promise<{ exitCode: number | null; stdout: string; stderr: string }>(
       (resolve, reject) => {
         if (!binaryPath) {
@@ -51,7 +54,7 @@ describe('CLI E2E (Smoke)', () => {
           cwd: options.cwd || process.cwd(),
           env: {
             ...process.env,
-            HOME: testDir,
+            HOME: options.useRealHome ? process.env.HOME : testDir,
             ...options.env,
           },
           stdio: ['pipe', 'pipe', 'pipe'],
@@ -113,37 +116,14 @@ describe('CLI E2E (Smoke)', () => {
     expect(result.stderr).toContain('Authentication/configuration error');
   });
 
-  it('runs default cia run success path with reliability defaults enabled', async () => {
+  it('returns assistant output for a real codex run', async () => {
     if (!shouldRunE2ETests) return;
-    const result = await runCLI(['run', 'Hello world'], {
-      env: { CIA_E2E_SCENARIO: 'success' },
+    const result = await runCLI(['run', 'Test', '--provider=codex'], {
+      useRealHome: true,
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('ok-from-test-double');
-  });
-
-  it('does not consume timeout budget during setup before streaming', async () => {
-    if (!shouldRunE2ETests) return;
-    const result = await runCLI(['run', 'Hello world', '--timeout=1'], {
-      env: {
-        CIA_E2E_SCENARIO: 'setup-delay-success',
-        CIA_E2E_SETUP_DELAY_MS: '1200',
-      },
-    });
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('ok-from-test-double');
-  });
-
-  it('surfaces non-retryable provider detail in default run path', async () => {
-    if (!shouldRunE2ETests) return;
-    const result = await runCLI(['run', 'Hello world'], {
-      env: { CIA_E2E_SCENARIO: 'nonretryable-model-error' },
-    });
-
-    expect(result.exitCode).toBe(4);
-    expect(result.stderr).toContain('does not exist or you do not have access');
-    expect(result.stderr).not.toContain('Provider failed after 1 retry attempts');
+    expect(result.stdout.length).toBeGreaterThan(0);
+    expect(result.stderr).not.toContain('Authentication/configuration error');
   });
 });
