@@ -5,6 +5,7 @@ import { createAssistantChat } from '../../src/providers/index.js';
 import { CodexAssistantChat } from '../../src/providers/codex.js';
 import { SchemaValidatingChat } from '../../src/providers/schema-validating-chat.js';
 import { ReliableAssistantChat } from '../../src/providers/reliability.js';
+import { mcpProvider } from '../../src/providers/mcp.js';
 import { CIAConfig } from '../../src/shared/config/loader.js';
 
 const testHome = '/tmp/cia-factory-tests';
@@ -207,5 +208,45 @@ describe('Provider Factory', () => {
 
     expect(provider).not.toBeInstanceOf(SchemaValidatingChat);
     expect(provider.getType()).toBe('codex');
+  });
+
+  it('skips MCP initialization when structured server list is empty', async () => {
+    const initializeSpy = vi.spyOn(mcpProvider, 'initialize').mockResolvedValue();
+
+    const config: CIAConfig = {
+      provider: 'codex',
+      mcp: {
+        servers: [],
+      },
+    };
+
+    await createAssistantChat('codex', config);
+
+    expect(initializeSpy).not.toHaveBeenCalled();
+  });
+
+  it('initializes MCP when at least one server is configured', async () => {
+    const initializeSpy = vi.spyOn(mcpProvider, 'initialize').mockResolvedValue();
+    const getHealthInfoSpy = vi.spyOn(mcpProvider, 'getHealthInfo').mockReturnValue({
+      healthy: true,
+      serverCount: 1,
+      connectedServers: 1,
+      toolCount: 0,
+      servers: [],
+    });
+
+    const config: CIAConfig = {
+      provider: 'codex',
+      verbose: true,
+      mcp: {
+        servers: [{ type: 'local', command: 'npx', args: ['-y', '@upstash/context7-mcp'] }],
+      },
+    };
+
+    await createAssistantChat('codex', config);
+
+    expect(initializeSpy).toHaveBeenCalledTimes(1);
+    expect(initializeSpy).toHaveBeenCalledWith(config);
+    expect(getHealthInfoSpy).toHaveBeenCalledTimes(1);
   });
 });

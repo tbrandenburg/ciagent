@@ -16,6 +16,7 @@ import { type MessageChunk, createMCPAggregateStatusChunk } from './types.js';
 export class MCPProvider {
   private mcpManager: MCPManager;
   private initialized = false;
+  private verbose = false;
 
   constructor() {
     this.mcpManager = new MCPManager();
@@ -25,13 +26,15 @@ export class MCPProvider {
    * Initialize the MCP provider with configuration
    */
   async initialize(config?: CIAConfig): Promise<void> {
+    this.verbose = config?.verbose === true;
+
     if (this.initialized) {
-      console.log('[MCP Provider] Already initialized');
+      this.log('[MCP Provider] Already initialized');
       return;
     }
 
     try {
-      console.log('[MCP Provider] Initializing...');
+      this.log('[MCP Provider] Initializing...');
 
       // Load MCP configuration safely
       let mcpConfig: Record<string, MCPServerConfig> = {};
@@ -52,7 +55,7 @@ export class MCPProvider {
             }
           }
         } catch (error) {
-          console.log(
+          this.log(
             '[MCP Provider] Failed to load structured config, continuing with empty MCP config:',
             error
           );
@@ -67,7 +70,7 @@ export class MCPProvider {
       await this.registerMCPTools();
 
       this.initialized = true;
-      console.log('[MCP Provider] Initialization complete');
+      this.log('[MCP Provider] Initialization complete');
     } catch (error) {
       console.error('[MCP Provider] Initialization failed:', error);
       throw error;
@@ -87,13 +90,13 @@ export class MCPProvider {
 
       if (toolRegistry.registerTool(toolDefinition)) {
         registeredCount++;
-        console.log(`[MCP Provider] Registered tool: ${mcpTool.id} from ${mcpTool.serverName}`);
+        this.log(`[MCP Provider] Registered tool: ${mcpTool.id} from ${mcpTool.serverName}`);
       } else {
-        console.log(`[MCP Provider] Tool ${mcpTool.id} already registered, skipping`);
+        this.log(`[MCP Provider] Tool ${mcpTool.id} already registered, skipping`);
       }
     }
 
-    console.log(`[MCP Provider] Registered ${registeredCount} MCP tools in tool registry`);
+    this.log(`[MCP Provider] Registered ${registeredCount} MCP tools in tool registry`);
   }
 
   /**
@@ -110,9 +113,9 @@ export class MCPProvider {
     }
 
     try {
-      console.log(`[MCP Provider] Executing tool: ${toolId}`);
+      this.log(`[MCP Provider] Executing tool: ${toolId}`);
       const result = await tool.execute(args);
-      console.log(`[MCP Provider] Tool execution successful: ${toolId}`);
+      this.log(`[MCP Provider] Tool execution successful: ${toolId}`);
       return result;
     } catch (error) {
       console.error(`[MCP Provider] Tool execution failed: ${toolId}`, error);
@@ -184,7 +187,7 @@ export class MCPProvider {
    * Refresh MCP connections and re-register tools
    */
   async refresh(): Promise<void> {
-    console.log('[MCP Provider] Refreshing connections...');
+    this.log('[MCP Provider] Refreshing connections...');
 
     // Clear existing MCP tools from registry
     const existingTools = toolRegistry.getAllTools().filter(tool => tool.type === 'mcp');
@@ -195,7 +198,7 @@ export class MCPProvider {
     // Re-register tools after refresh
     await this.registerMCPTools();
 
-    console.log('[MCP Provider] Refresh complete');
+    this.log('[MCP Provider] Refresh complete');
   }
 
   /**
@@ -206,7 +209,7 @@ export class MCPProvider {
       return;
     }
 
-    console.log('[MCP Provider] Cleaning up...');
+    this.log('[MCP Provider] Cleaning up...');
 
     // Remove MCP tools from registry
     const mcpTools = toolRegistry.getAllTools().filter(tool => tool.type === 'mcp');
@@ -218,7 +221,14 @@ export class MCPProvider {
     await this.mcpManager.cleanup();
 
     this.initialized = false;
-    console.log('[MCP Provider] Cleanup complete');
+    this.log('[MCP Provider] Cleanup complete');
+  }
+
+  private log(message: string, ...args: unknown[]): void {
+    if (!this.verbose) {
+      return;
+    }
+    console.log(message, ...args);
   }
 }
 

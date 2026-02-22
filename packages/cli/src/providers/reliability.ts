@@ -33,7 +33,7 @@ export class ReliableAssistantChat implements IAssistantChat {
     let finalErrorMessage = '';
 
     try {
-      const successfulChunks = await pRetry(
+      const attemptResult = await pRetry(
         async () => {
           if (retryWindowController.signal.aborted) {
             const reason = retryWindowController.signal.reason;
@@ -43,73 +43,65 @@ export class ReliableAssistantChat implements IAssistantChat {
             throw new AbortError(reasonMessage);
           }
 
-          const chunks: ChatChunk[] = [];
-          let hasError = false;
-          let errorMessage = '';
-
+          // Call provider with appropriate overload
+          const queryIterable =
+            typeof input === 'string'
+              ? this.provider.sendQuery(input, cwd, resumeSessionId)
+              : this.provider.sendQuery(input, cwd, resumeSessionId);
+          const iterator = queryIterable[Symbol.asyncIterator]();
+          let firstChunkResult: IteratorResult<ChatChunk>;
           try {
-            // Collect all chunks from the provider
-            // Call provider with appropriate overload
-            const queryIterable =
-              typeof input === 'string'
-                ? this.provider.sendQuery(input, cwd, resumeSessionId)
-                : this.provider.sendQuery(input, cwd, resumeSessionId);
-
-            for await (const chunk of queryIterable) {
-              // Contract validation if enabled
-              if (contractValidation) {
-                if (!validateChunkTypes(chunk)) {
-                  const errorMsg = `Contract validation failed: Invalid chunk type: ${chunk.type}`;
-                  isNonRetryableError = true;
-                  finalErrorMessage = errorMsg;
-                  throw new AbortError(errorMsg);
-                }
-
-                if (!validateSessionId(chunk)) {
-                  const errorMsg =
-                    'Contract validation failed: Missing or invalid sessionId in result chunk';
-                  isNonRetryableError = true;
-                  finalErrorMessage = errorMsg;
-                  throw new AbortError(errorMsg);
-                }
-              }
-
-              chunks.push(chunk);
-
-              // Check for error chunks
-              if (chunk.type === 'error' && chunk.content) {
-                hasError = true;
-                errorMessage = chunk.content;
-              }
-            }
+            firstChunkResult = await iterator.next();
           } catch (providerError) {
-            // Handle exceptions thrown by the provider
             const errorMsg =
               providerError instanceof Error ? providerError.message : String(providerError);
-
-            // Check if this is a non-retryable error
             if (this.isNonRetryableError(errorMsg)) {
               isNonRetryableError = true;
               finalErrorMessage = errorMsg;
               throw new AbortError(errorMsg);
             }
-
-            // Otherwise, let pRetry handle the retry
             throw providerError;
           }
 
-          // If we collected error chunks, decide if we should retry
-          if (hasError) {
-            // Check for non-retryable errors
-            if (this.isNonRetryableError(errorMessage)) {
-              isNonRetryableError = true;
-              finalErrorMessage = errorMessage;
-              throw new AbortError(errorMessage);
-            }
-            throw new Error(errorMessage);
+          if (firstChunkResult.done) {
+            return {
+              firstChunk: undefined as ChatChunk | undefined,
+              iterator,
+            };
           }
 
-          return chunks;
+          const firstChunk = firstChunkResult.value;
+
+          if (contractValidation) {
+            if (!validateChunkTypes(firstChunk)) {
+              const errorMsg = `Contract validation failed: Invalid chunk type: ${firstChunk.type}`;
+              isNonRetryableError = true;
+              finalErrorMessage = errorMsg;
+              throw new AbortError(errorMsg);
+            }
+
+            if (!validateSessionId(firstChunk)) {
+              const errorMsg =
+                'Contract validation failed: Missing or invalid sessionId in result chunk';
+              isNonRetryableError = true;
+              finalErrorMessage = errorMsg;
+              throw new AbortError(errorMsg);
+            }
+          }
+
+          if (firstChunk.type === 'error' && firstChunk.content) {
+            if (this.isNonRetryableError(firstChunk.content)) {
+              isNonRetryableError = true;
+              finalErrorMessage = firstChunk.content;
+              throw new AbortError(firstChunk.content);
+            }
+            throw new Error(firstChunk.content);
+          }
+
+          return {
+            firstChunk,
+            iterator,
+          };
         },
         {
           retries: maxRetries,
@@ -125,8 +117,72 @@ export class ReliableAssistantChat implements IAssistantChat {
         }
       );
 
-      // Stream the successful chunks
-      for (const chunk of successfulChunks) {
+      if (!attemptResult.firstChunk) {
+        return;
+      }
+
+      yield attemptResult.firstChunk;
+
+      while (true) {
+        let nextChunkResult: IteratorResult<ChatChunk>;
+        try {
+          nextChunkResult = await attemptResult.iterator.next();
+        } catch (providerError) {
+          const errorMsg =
+            providerError instanceof Error ? providerError.message : String(providerError);
+          const providerErrorChunk = CommonErrors.providerUnreliable(this.getType(), errorMsg);
+          yield {
+            type: 'error',
+            content: providerErrorChunk.details
+              ? `${providerErrorChunk.message}: ${providerErrorChunk.details}`
+              : providerErrorChunk.message,
+          };
+          return;
+        }
+
+        if (nextChunkResult.done) {
+          break;
+        }
+
+        const chunk = nextChunkResult.value;
+        if (contractValidation) {
+          if (!validateChunkTypes(chunk)) {
+            const errorMsg = `Contract validation failed: Invalid chunk type: ${chunk.type}`;
+            const providerErrorChunk = CommonErrors.providerUnreliable(this.getType(), errorMsg);
+            yield {
+              type: 'error',
+              content: providerErrorChunk.details
+                ? `${providerErrorChunk.message}: ${providerErrorChunk.details}`
+                : providerErrorChunk.message,
+            };
+            return;
+          }
+
+          if (!validateSessionId(chunk)) {
+            const errorMsg =
+              'Contract validation failed: Missing or invalid sessionId in result chunk';
+            const providerErrorChunk = CommonErrors.providerUnreliable(this.getType(), errorMsg);
+            yield {
+              type: 'error',
+              content: providerErrorChunk.details
+                ? `${providerErrorChunk.message}: ${providerErrorChunk.details}`
+                : providerErrorChunk.message,
+            };
+            return;
+          }
+        }
+
+        if (chunk.type === 'error' && chunk.content) {
+          const providerErrorChunk = CommonErrors.providerUnreliable(this.getType(), chunk.content);
+          yield {
+            type: 'error',
+            content: providerErrorChunk.details
+              ? `${providerErrorChunk.message}: ${providerErrorChunk.details}`
+              : providerErrorChunk.message,
+          };
+          return;
+        }
+
         yield chunk;
       }
     } catch (error) {

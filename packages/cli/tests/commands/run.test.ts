@@ -189,6 +189,7 @@ describe('runCommand', () => {
 
       const exitCode = await runCommand(['hello'], {
         provider: 'codex',
+        verbose: true,
         skill: 'test-skill',
         skills: { paths: ['/test/skills'] },
       });
@@ -197,6 +198,7 @@ describe('runCommand', () => {
       expect(logSpy).toHaveBeenCalledWith('ok');
       expect(createAssistantChatSpy).toHaveBeenCalledWith('codex', {
         provider: 'codex',
+        verbose: true,
         skill: 'test-skill',
         skills: { paths: ['/test/skills'] },
       });
@@ -218,7 +220,7 @@ describe('runCommand', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const exitCode = await runCommand(['hello'], { provider: 'codex' });
+      const exitCode = await runCommand(['hello'], { provider: 'codex', verbose: true });
 
       expect(exitCode).toBe(0);
 
@@ -248,7 +250,7 @@ describe('runCommand', () => {
       const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const exitCode = await runCommand(['hello'], { provider: 'codex' });
+      const exitCode = await runCommand(['hello'], { provider: 'codex', verbose: true });
 
       expect(exitCode).toBe(0);
 
