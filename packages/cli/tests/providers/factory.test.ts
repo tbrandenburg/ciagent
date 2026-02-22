@@ -92,12 +92,10 @@ describe('Provider Factory', () => {
   });
 
   it('forwards top-level model to codex provider config', async () => {
-    const codexCreateSpy = vi
-      .spyOn(CodexAssistantChat, 'create')
-      .mockResolvedValue({
-        getType: () => 'codex',
-        sendQuery: vi.fn() as any,
-      } as CodexAssistantChat);
+    const codexCreateSpy = vi.spyOn(CodexAssistantChat, 'create').mockResolvedValue({
+      getType: () => 'codex',
+      sendQuery: vi.fn() as any,
+    } as CodexAssistantChat);
 
     const config: CIAConfig = {
       provider: 'codex',
@@ -110,16 +108,35 @@ describe('Provider Factory', () => {
   });
 
   it('supports provider/model syntax and strips provider prefix', async () => {
-    const codexCreateSpy = vi
-      .spyOn(CodexAssistantChat, 'create')
-      .mockResolvedValue({
-        getType: () => 'codex',
-        sendQuery: vi.fn() as any,
-      } as CodexAssistantChat);
+    const codexCreateSpy = vi.spyOn(CodexAssistantChat, 'create').mockResolvedValue({
+      getType: () => 'codex',
+      sendQuery: vi.fn() as any,
+    } as CodexAssistantChat);
 
     const config: CIAConfig = {
       provider: 'codex',
       model: 'codex/gpt-5.3-codex',
+    };
+
+    await createAssistantChat('codex', config);
+
+    expect(codexCreateSpy).toHaveBeenCalledWith({ model: 'gpt-5.3-codex' });
+  });
+
+  it('does not override provider model when top-level model targets another provider', async () => {
+    const codexCreateSpy = vi.spyOn(CodexAssistantChat, 'create').mockResolvedValue({
+      getType: () => 'codex',
+      sendQuery: vi.fn() as any,
+    } as CodexAssistantChat);
+
+    const config: CIAConfig = {
+      provider: 'codex',
+      model: 'openai/gpt-4o',
+      providers: {
+        codex: {
+          model: 'gpt-5.3-codex',
+        },
+      },
     };
 
     await createAssistantChat('codex', config);

@@ -39,9 +39,12 @@ export async function createAssistantChat(
   // Load structured configuration with environment variable substitution
   const structuredConfig = config ? loadStructuredConfig(config) : undefined;
   const providerConfig = structuredConfig?.providers?.[provider] ?? {};
+  const modelFromTopLevel = config?.model
+    ? extractModelForProvider(provider, config.model)
+    : undefined;
   const effectiveProviderConfig = {
     ...providerConfig,
-    ...(config?.model ? { model: extractModelForProvider(provider, config.model) } : {}),
+    ...(modelFromTopLevel ? { model: modelFromTopLevel } : {}),
   };
   const networkConfig = config?.network;
 
