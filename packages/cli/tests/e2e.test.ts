@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const shouldRunE2ETests = process.env.RUN_E2E_TESTS === '1';
+const shouldRunRealCodexE2E = process.env.RUN_REAL_CODEX_E2E === '1';
 
 describe('CLI E2E (Smoke)', () => {
   const testDir = '/tmp/cia-e2e-test';
@@ -118,6 +119,17 @@ describe('CLI E2E (Smoke)', () => {
 
   it('returns assistant output for a real codex run', async () => {
     if (!shouldRunE2ETests) return;
+    if (!shouldRunRealCodexE2E) {
+      console.log('Skipping real Codex E2E. Set RUN_REAL_CODEX_E2E=1 to run it.');
+      return;
+    }
+
+    const codexAuthPath = resolve(process.env.HOME || '', '.codex', 'auth.json');
+    if (!existsSync(codexAuthPath)) {
+      console.log(`Skipping real Codex E2E. Auth not found at ${codexAuthPath}`);
+      return;
+    }
+
     const result = await runCLI(['run', 'Test', '--provider=codex'], {
       useRealHome: true,
     });
