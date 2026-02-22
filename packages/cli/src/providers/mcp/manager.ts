@@ -9,6 +9,7 @@ import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
+import { createOAuthProvider } from './auth.js';
 import type {
   MCPServerConfig,
   MCPLocalServerConfig,
@@ -278,7 +279,26 @@ export class MCPManager {
     transport?: StreamableHTTPClientTransport | SSEClientTransport;
     status: MCPServerStatus;
   }> {
-    // For now, OAuth is not implemented in this basic version
+    // Handle OAuth authentication if configured
+    const authHeaders: Record<string, string> = {};
+
+    if (config.oauth !== false && config.oauth) {
+      const authProvider = createOAuthProvider(name, config.url, config);
+      if (authProvider) {
+        // Get valid token (refresh if needed)
+        const token = await authProvider.getValidToken();
+        if (token) {
+          authHeaders['Authorization'] = `Bearer ${token.access_token}`;
+        } else {
+          // No valid token available - user needs to authenticate
+          console.log(`🔐 Authentication required for ${name}. Run: cia mcp auth ${name}`);
+          return {
+            status: { status: 'needs_auth' },
+          };
+        }
+      }
+    }
+
     this.logRemoteNetworkContext(name);
 
     const transports: Array<{
@@ -288,7 +308,11 @@ export class MCPManager {
       {
         name: 'StreamableHTTP',
         transport: new StreamableHTTPClientTransport(new URL(config.url), {
-          requestInit: config.headers ? { headers: config.headers } : undefined,
+          requestInit: config.headers
+            ? { headers: { ...config.headers, ...authHeaders } }
+            : authHeaders.Authorization
+              ? { headers: authHeaders }
+              : undefined,
         }),
       },
       {
@@ -327,7 +351,15 @@ export class MCPManager {
 
         // Handle OAuth-specific errors
         if (error instanceof UnauthorizedError) {
-          console.log(`[MCP] Server ${name} requires authentication (${transportName})`);
+          if (config.oauth !== false && config.oauth) {
+            console.log(`🔐 Authentication required for ${name}. Run: cia mcp auth ${name}`);
+            return {
+              status: { status: 'needs_auth' },
+            };
+          }
+          console.log(
+            `[MCP] Server ${name} requires authentication but no OAuth config provided (${transportName})`
+          );
           return {
             status: { status: 'needs_auth' },
           };
