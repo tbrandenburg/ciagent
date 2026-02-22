@@ -82,23 +82,44 @@ describe('CLI Main', () => {
 describe('Context-aware retry defaults', () => {
   let originalStdinIsTTY: boolean;
   let originalStdoutIsTTY: boolean;
-  let originalCI: string | undefined;
+  let originalCiEnvVars: Record<string, string | undefined> = {};
+
+  // CI environment variables that isInteractiveContext() checks
+  const ciEnvironments = [
+    'CI',
+    'CONTINUOUS_INTEGRATION',
+    'GITHUB_ACTIONS',
+    'GITLAB_CI',
+    'JENKINS_URL',
+    'BUILDKITE',
+    'CIRCLECI',
+    'TRAVIS',
+    'APPVEYOR',
+  ];
 
   beforeEach(() => {
     // Save original values
     originalStdinIsTTY = process.stdin.isTTY;
     originalStdoutIsTTY = process.stdout.isTTY;
-    originalCI = process.env.CI;
+
+    // Save all CI environment variables
+    for (const envVar of ciEnvironments) {
+      originalCiEnvVars[envVar] = process.env[envVar];
+    }
   });
 
   afterEach(() => {
     // Restore original values
     (process.stdin as any).isTTY = originalStdinIsTTY;
     (process.stdout as any).isTTY = originalStdoutIsTTY;
-    if (originalCI !== undefined) {
-      process.env.CI = originalCI;
-    } else {
-      delete process.env.CI;
+
+    // Restore all CI environment variables
+    for (const envVar of ciEnvironments) {
+      if (originalCiEnvVars[envVar] !== undefined) {
+        process.env[envVar] = originalCiEnvVars[envVar];
+      } else {
+        delete process.env[envVar];
+      }
     }
   });
 
@@ -106,7 +127,11 @@ describe('Context-aware retry defaults', () => {
     // Mock interactive environment
     (process.stdin as any).isTTY = true;
     (process.stdout as any).isTTY = true;
-    delete process.env.CI;
+
+    // Clear all CI environment variables
+    for (const envVar of ciEnvironments) {
+      delete process.env[envVar];
+    }
 
     const config = withDefaults({});
     expect(config.retries).toBe(0);
@@ -128,7 +153,11 @@ describe('Context-aware retry defaults', () => {
     // Mock non-interactive (piped) environment
     (process.stdin as any).isTTY = false;
     (process.stdout as any).isTTY = true;
-    delete process.env.CI;
+
+    // Clear all CI environment variables
+    for (const envVar of ciEnvironments) {
+      delete process.env[envVar];
+    }
 
     const config = withDefaults({});
     expect(config.retries).toBe(1);
@@ -138,7 +167,11 @@ describe('Context-aware retry defaults', () => {
     // Mock interactive environment
     (process.stdin as any).isTTY = true;
     (process.stdout as any).isTTY = true;
-    delete process.env.CI;
+
+    // Clear all CI environment variables
+    for (const envVar of ciEnvironments) {
+      delete process.env[envVar];
+    }
 
     const config = withDefaults({ retries: 5 });
     expect(config.retries).toBe(5);
