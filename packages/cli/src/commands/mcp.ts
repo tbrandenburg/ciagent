@@ -1,5 +1,7 @@
 import { CIAConfig } from '../shared/config/loader.js';
 import { mcpProvider } from '../providers/mcp.js';
+import { createOAuthProvider } from '../providers/mcp/auth.js';
+import { MCPRemoteServerConfig, MCPServerConfig } from '../shared/config/schema.js';
 import { CommonErrors, printError } from '../shared/errors/error-handling.js';
 import { ExitCode } from '../utils/exit-codes.js';
 
@@ -31,7 +33,7 @@ export async function mcpCommand(args: string[], config: CIAConfig): Promise<num
       case 'disconnect':
         return await disconnectCommand(args.slice(1));
       case 'auth':
-        return await authCommand(args.slice(1));
+        return await authCommand(args.slice(1), config);
       case 'tools':
         return await toolsCommand();
       default: {
@@ -350,7 +352,7 @@ async function disconnectCommand(args: string[]): Promise<number> {
   }
 }
 
-async function authCommand(args: string[]): Promise<number> {
+async function authCommand(args: string[], config: CIAConfig): Promise<number> {
   const serverName = args[0];
 
   if (!serverName) {
@@ -360,11 +362,60 @@ async function authCommand(args: string[]): Promise<number> {
   }
 
   try {
-    console.log(`OAuth authentication for: ${serverName}...`);
-    console.log(`Note: OAuth authentication is handled automatically during server connection.`);
-    console.log(
-      `If authentication failed, check your configuration and server status with 'cia mcp status'.`
-    );
+    // Get server configuration from the config object
+    let serverConfig: MCPRemoteServerConfig | undefined;
+
+    if (config.mcp) {
+      if ('servers' in config.mcp && Array.isArray(config.mcp.servers)) {
+        // CIA Agent format: { mcp: { servers: [...] } }
+        const foundServer = config.mcp.servers.find(
+          server => 'name' in server && server.name === serverName
+        );
+        serverConfig =
+          foundServer?.type === 'remote' ? (foundServer as MCPRemoteServerConfig) : undefined;
+      } else {
+        // OpenCode format: { mcp: { serverName: { type: "remote", ... }, ... } }
+        const mcpRecord = config.mcp as Record<string, Omit<MCPServerConfig, 'name'>>;
+        const foundConfig = mcpRecord[serverName];
+        if (foundConfig?.type === 'remote') {
+          serverConfig = { ...foundConfig, name: serverName } as unknown as MCPRemoteServerConfig;
+        }
+      }
+    }
+
+    if (!serverConfig) {
+      const error = CommonErrors.operationFailed(
+        `get config for ${serverName}`,
+        `Server '${serverName}' not found in configuration`
+      );
+      printError(error);
+      return error.code;
+    }
+
+    if (serverConfig.oauth === false || !serverConfig.oauth) {
+      console.log(`ℹ️  Server '${serverName}' does not have OAuth configured.`);
+      return ExitCode.SUCCESS;
+    }
+
+    console.log(`🔐 Starting OAuth authentication for ${serverName}...`);
+
+    // Create OAuth provider
+    const authProvider = createOAuthProvider(serverName, serverConfig.url, serverConfig);
+
+    if (!authProvider) {
+      const error = CommonErrors.operationFailed(
+        `create OAuth provider`,
+        `Failed to create OAuth provider for server '${serverName}'`
+      );
+      printError(error);
+      return error.code;
+    }
+
+    // Start OAuth flow
+    await authProvider.authorize();
+
+    // The OAuth flow is complete when authorize() returns
+    // Success/failure is handled by the OAuth provider
     return ExitCode.SUCCESS;
   } catch (error) {
     const cliError = CommonErrors.operationFailed(
