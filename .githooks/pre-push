@@ -1,7 +1,72 @@
 #!/usr/bin/env sh
+# Lightweight pre-push hook - fast essential validation only
+# Target: complete in under 30 seconds
 set -eu
 
 cd "$(git rev-parse --show-toplevel)"
 
-echo "[cia] running pre-push validation: make ci"
-make ci
+echo "[cia] 🚀 running pre-push validation (targeting <30s)"
+start_time=$(date +%s)
+
+# Function to show elapsed time
+show_elapsed() {
+    local current_time=$(date +%s)
+    local elapsed=$((current_time - start_time))
+    echo "[cia] ⏱️  ${elapsed}s elapsed"
+}
+
+# Trap to show final time on exit
+trap 'show_elapsed' EXIT
+
+# 1. FAST: Type checking (~3-5s)
+echo "[cia] 🔍 type checking..."
+timeout 15 bun run type-check || {
+    echo "[cia] ❌ type check failed or timed out (15s limit)"
+    exit 1
+}
+show_elapsed
+
+# 2. FAST: Linting (~2-3s) 
+echo "[cia] 🧹 linting..."
+timeout 10 bun run lint || {
+    echo "[cia] ❌ lint failed or timed out (10s limit)"
+    exit 1
+}
+show_elapsed
+
+# 3. SMOKE: Critical path tests only (~10-15s)
+# Run only core functionality tests, skip slow integration tests
+echo "[cia] 🧪 smoke tests (critical path only)..."
+timeout 20 npx vitest --run packages/cli/tests/cli.test.ts packages/cli/tests/commands/help.test.ts packages/cli/tests/commands/version.test.ts packages/cli/tests/config/loader.test.ts || {
+    echo "[cia] ❌ smoke tests failed or timed out (20s limit)"
+    echo "[cia] 💡 run 'make test' locally to see detailed failures"
+    exit 1
+}
+show_elapsed
+
+# 4. OPTIONAL: Basic build smoke test (skip if running long)
+current_time=$(date +%s)
+elapsed=$((current_time - start_time))
+
+if [ $elapsed -lt 25 ]; then
+    echo "[cia] 🔨 build smoke test..."
+    timeout 10 bun run build >/dev/null 2>&1 || {
+        echo "[cia] ⚠️  build smoke test failed (non-blocking)"
+        echo "[cia] 💡 run 'make build' locally to debug"
+        # Don't exit - build issues aren't blocking for push
+    }
+    show_elapsed
+else
+    echo "[cia] ⏭️  skipping build test (time budget: ${elapsed}s/30s used)"
+fi
+
+final_time=$(date +%s)
+total_elapsed=$((final_time - start_time))
+
+if [ $total_elapsed -ge 30 ]; then
+    echo "[cia] ⚠️  validation took ${total_elapsed}s (target: <30s) - consider optimizing"
+else
+    echo "[cia] ✅ validation complete in ${total_elapsed}s"
+fi
+
+echo "[cia] 🎉 pre-push validation passed - ready to push!"

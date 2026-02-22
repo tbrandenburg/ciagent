@@ -10,6 +10,7 @@
 - Never skip tests!
 - Keep test suites lean for CI performance: Prefer a low number of high-signal tests that catch real regressions over many repetitive low-value tests
 - Strive for quality! Linting and testing have to pass!
+- Avoid adding new environment variables if not explicitly requested
 
 ## Project Structure
 
