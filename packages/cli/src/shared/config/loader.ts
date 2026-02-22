@@ -323,3 +323,34 @@ function mergeConfigs(base: Partial<CIAConfig>, override: Partial<CIAConfig>): C
 
   return merged as CIAConfig;
 }
+
+/**
+ * Determines if the current execution context is interactive terminal usage
+ * vs CI/automation environment that benefits from retry reliability
+ */
+export function isInteractiveContext(): boolean {
+  // Not interactive if no TTY (piped/redirected input)
+  if (!(process.stdin.isTTY && process.stdout.isTTY)) {
+    return false;
+  }
+
+  // Common CI environment indicators
+  const ciEnvironments = [
+    'CI',
+    'CONTINUOUS_INTEGRATION',
+    'GITHUB_ACTIONS',
+    'GITLAB_CI',
+    'JENKINS_URL',
+    'BUILDKITE',
+    'CIRCLECI',
+    'TRAVIS',
+    'APPVEYOR',
+  ];
+
+  // Not interactive if running in CI
+  if (ciEnvironments.some(env => process.env[env])) {
+    return false;
+  }
+
+  return true;
+}

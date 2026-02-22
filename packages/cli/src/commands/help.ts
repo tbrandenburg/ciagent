@@ -102,6 +102,11 @@ export function printHelpText(): void {
   console.log('  # List available skills');
   console.log('  cia skills list');
   console.log('');
+  console.log('Smart Defaults:');
+  console.log('  --retries    Defaults to 0 in interactive terminals for fast feedback');
+  console.log('               Defaults to 1 in CI/automation for reliability');
+  console.log('               Override with explicit --retries=N as needed');
+  console.log('');
   console.log('CONFIGURATION:');
   console.log('  Configuration is loaded in this order (later overrides earlier):');
   console.log('  1. User config: ~/.cia/config.json');
