@@ -126,6 +126,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
         const exitCode = await runCommand(['What capabilities do you have?'], {
           ...baseTestConfig,
           provider: 'codex',
+          verbose: true,
           skill: 'pdf', // Use the PDF skill we created
         } as CIAConfig);
 
@@ -175,7 +176,10 @@ When asked about PDFs, mention your PDF processing capabilities.`;
 
       try {
         // This will attempt to start Context7 MCP server but should handle failures gracefully
-        const exitCode = await runCommand(['List available tools'], baseTestConfig);
+        const exitCode = await runCommand(['List available tools'], {
+          ...baseTestConfig,
+          verbose: true,
+        });
 
         // Should not crash regardless of MCP server availability
         const logCalls = logSpy.mock.calls.map(call => call[0]);
@@ -202,6 +206,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
         const exitCode = await runCommand(['How can I process a PDF and look up documentation?'], {
           ...baseTestConfig,
           provider: 'codex',
+          verbose: true,
           skill: 'pdf', // Activates the PDF skill
         } as CIAConfig);
 
@@ -245,6 +250,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
           const exitCode = await runCommand(['Test query'], {
             ...baseTestConfig,
             provider: 'codex',
+            verbose: true,
           } as CIAConfig);
 
           // Should still show status even if Codex fails
@@ -270,6 +276,7 @@ When asked about PDFs, mention your PDF processing capabilities.`;
           const exitCode = await runCommand(['Test with network issues'], {
             ...baseTestConfig,
             provider: 'codex',
+            verbose: true,
             mcp: {
               context7: {
                 type: 'local',

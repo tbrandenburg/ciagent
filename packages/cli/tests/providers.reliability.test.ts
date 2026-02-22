@@ -107,6 +107,74 @@ describe('ReliableAssistantChat', () => {
     it('should return provider type with reliable prefix', () => {
       expect(reliableProvider.getType()).toBe('reliable-mock-provider');
     });
+
+    it('emits the first chunk before stream completion', async () => {
+      const slowProvider: IAssistantChat = {
+        async *sendQuery(
+          _input: string | Message[],
+          _cwd: string,
+          _resumeSessionId?: string
+        ): AsyncGenerator<ChatChunk> {
+          yield { type: 'assistant', content: 'first-token' };
+          await new Promise(resolve => setTimeout(resolve, 150));
+          yield { type: 'result', content: 'done', sessionId: 'stream-session' };
+        },
+        getType: () => 'slow-provider',
+        listModels: async () => ['slow-model'],
+      };
+
+      const slowReliableProvider = new ReliableAssistantChat(slowProvider, config);
+      const iterator = slowReliableProvider.sendQuery('test prompt', '/tmp');
+
+      const startedAt = Date.now();
+      const firstChunk = await iterator.next();
+      const firstChunkElapsedMs = Date.now() - startedAt;
+
+      expect(firstChunk.done).toBe(false);
+      expect(firstChunk.value?.type).toBe('assistant');
+      expect(firstChunk.value?.content).toBe('first-token');
+      expect(firstChunkElapsedMs).toBeLessThan(120);
+
+      const secondChunk = await iterator.next();
+      expect(secondChunk.done).toBe(false);
+      expect(secondChunk.value?.type).toBe('result');
+    });
+
+    it('does not retry after chunks have already been emitted', async () => {
+      let callCount = 0;
+      const partialFailureProvider: IAssistantChat = {
+        async *sendQuery(
+          _input: string | Message[],
+          _cwd: string,
+          _resumeSessionId?: string
+        ): AsyncGenerator<ChatChunk> {
+          callCount++;
+          yield { type: 'assistant', content: 'partial-token' };
+          throw new Error('mid-stream failure');
+        },
+        getType: () => 'partial-failure-provider',
+        listModels: async () => ['partial-failure-model'],
+      };
+
+      const partialFailureReliableProvider = new ReliableAssistantChat(
+        partialFailureProvider,
+        config
+      );
+      const chunks: ChatChunk[] = [];
+      for await (const chunk of partialFailureReliableProvider.sendQuery('test prompt', '/tmp')) {
+        chunks.push(chunk);
+      }
+
+      expect(callCount).toBe(1);
+      expect(chunks).toHaveLength(2);
+      expect(chunks[0].type).toBe('assistant');
+      expect(chunks[0].content).toBe('partial-token');
+      expect(chunks[1].type).toBe('error');
+      expect(chunks[1].content).toContain(
+        "Provider 'reliable-partial-failure-provider' reliability issue"
+      );
+      expect(chunks[1].content).toContain('mid-stream failure');
+    });
   });
 
   describe('Retry Logic', () => {

@@ -17,27 +17,35 @@ export async function createAssistantChat(
   config?: CIAConfig
 ): Promise<IAssistantChat> {
   let assistantChat: IAssistantChat;
+  const structuredConfig = config ? loadStructuredConfig(config) : undefined;
+  const mcpServers =
+    structuredConfig?.mcp && 'servers' in structuredConfig.mcp
+      ? Array.isArray(structuredConfig.mcp.servers)
+        ? structuredConfig.mcp.servers
+        : undefined
+      : undefined;
+  const mcpServerCount = mcpServers?.length ?? 0;
 
   // Initialize MCP provider if MCP configuration is present
-  if (config) {
-    const structuredConfig = loadStructuredConfig(config);
-    if (structuredConfig?.mcp && Object.keys(structuredConfig.mcp).length > 0) {
-      try {
-        console.log('[Provider Factory] Initializing MCP provider...');
-        await mcpProvider.initialize(config);
+  if (config && mcpServerCount > 0) {
+    if (config.verbose) {
+      console.log('[Provider Factory] Initializing MCP provider...');
+    }
+    try {
+      await mcpProvider.initialize(config);
+      if (config.verbose) {
         const healthInfo = mcpProvider.getHealthInfo();
         console.log(
           `[Provider Factory] MCP provider initialized: ${healthInfo.connectedServers}/${healthInfo.serverCount} servers connected, ${healthInfo.toolCount} tools available`
         );
-      } catch (error) {
-        console.error('[Provider Factory] MCP provider initialization failed:', error);
-        // Continue without MCP - non-blocking
       }
+    } catch (error) {
+      console.error('[Provider Factory] MCP provider initialization failed:', error);
+      // Continue without MCP - non-blocking
     }
   }
 
   // Load structured configuration with environment variable substitution
-  const structuredConfig = config ? loadStructuredConfig(config) : undefined;
   const providerConfig = structuredConfig?.providers?.[provider] ?? {};
   const modelFromTopLevel = config?.model
     ? extractModelForProvider(provider, config.model)

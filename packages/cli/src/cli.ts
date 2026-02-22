@@ -37,6 +37,7 @@ function parseCliArgs(args: string[]) {
       'api-version': { type: 'string' },
       org: { type: 'string' },
       'log-level': { type: 'string' },
+      verbose: { type: 'boolean' },
       skill: { type: 'string' },
     },
     allowPositionals: true,
@@ -67,6 +68,7 @@ function toCliConfig(values: Record<string, unknown>): Partial<CIAConfig> {
     'api-version': values['api-version'] as string | undefined,
     org: values.org as string | undefined,
     'log-level': values['log-level'] as string | undefined,
+    verbose: values.verbose as boolean | undefined,
     skill: values.skill as string | undefined,
   };
 }
@@ -175,7 +177,6 @@ function withDefaults(config: CIAConfig): CIAConfig {
     mode: config.mode ?? 'lazy',
     format: config.format ?? 'default',
     provider: config.provider ?? 'codex',
-    'output-file': config['output-file'] ?? 'result.json',
     retries: config.retries ?? 1,
     'retry-backoff': config['retry-backoff'] ?? true,
     timeout: config.timeout ?? 60,

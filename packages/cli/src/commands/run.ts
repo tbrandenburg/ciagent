@@ -1,6 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, extname } from 'path';
-import { CIAConfig } from '../shared/config/loader.js';
+import { CIAConfig, loadStructuredConfig } from '../shared/config/loader.js';
 import { createAssistantChat } from '../providers/index.js';
 import { CommonErrors, printError } from '../shared/errors/error-handling.js';
 import { ExitCode } from '../utils/exit-codes.js';
@@ -49,13 +49,15 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     const assistantChunks: string[] = [];
     let assistantOutputBytes = 0;
 
-    // Fire-and-forget status output so it never blocks prompt execution
-    void emitStatusMessages(config).catch(error => {
-      console.log(
-        '[Status] Warning: Status emission failed:',
-        error instanceof Error ? error.message : String(error)
-      );
-    });
+    if (config.verbose === true) {
+      // Fire-and-forget status output so it never blocks prompt execution
+      void emitStatusMessages(config).catch(error => {
+        console.log(
+          '[Status] Warning: Status emission failed:',
+          error instanceof Error ? error.message : String(error)
+        );
+      });
+    }
 
     const abortController = new AbortController();
     timeoutId = setTimeout(() => {
@@ -455,11 +457,13 @@ async function enhanceCapabilityQuery(prompt: string, config: CIAConfig): Promis
   ];
 
   try {
-    // Get MCP tools and server status
-    await mcpProvider.initialize(config);
-    const mcpHealthInfo = mcpProvider.getHealthInfo();
+    const mcpServerCount = getMcpServerCount(config);
 
-    if (mcpHealthInfo.serverCount > 0) {
+    if (mcpServerCount > 0) {
+      // Get MCP tools and server status
+      await mcpProvider.initialize(config);
+      const mcpHealthInfo = mcpProvider.getHealthInfo();
+
       capabilityInventory.push('### MCP (Model Context Protocol) Tools\n');
       capabilityInventory.push(
         `**Status**: ${mcpHealthInfo.serverCount} servers configured, ${mcpHealthInfo.connectedServers} connected\n`
@@ -542,31 +546,36 @@ async function enhanceCapabilityQuery(prompt: string, config: CIAConfig): Promis
  */
 async function emitStatusMessages(config: CIAConfig): Promise<void> {
   const capabilities: string[] = [];
+  const mcpServerCount = getMcpServerCount(config);
 
   // Check MCP status
-  try {
-    await mcpProvider.initialize(config);
-    const mcpStatusChunk = mcpProvider.getStatusChunk();
+  if (mcpServerCount > 0) {
+    try {
+      await mcpProvider.initialize(config);
+      const mcpStatusChunk = mcpProvider.getStatusChunk();
 
-    if (mcpStatusChunk.type === 'mcp_aggregate_status') {
-      const { serverCount, connectedServers, toolCount } = mcpStatusChunk;
+      if (mcpStatusChunk.type === 'mcp_aggregate_status') {
+        const { serverCount, connectedServers, toolCount } = mcpStatusChunk;
 
-      if (toolCount > 0) {
-        capabilities.push(`${toolCount} MCP tools from ${connectedServers} servers`);
-        console.log(
-          `[Status] MCP: ${connectedServers}/${serverCount} servers connected, ${toolCount} tools available`
-        );
-      } else if (serverCount > 0) {
-        console.log(`[Status] MCP: ${serverCount} servers configured, but no tools available`);
-      } else {
-        console.log('[Status] MCP: No servers configured');
+        if (toolCount > 0) {
+          capabilities.push(`${toolCount} MCP tools from ${connectedServers} servers`);
+          console.log(
+            `[Status] MCP: ${connectedServers}/${serverCount} servers connected, ${toolCount} tools available`
+          );
+        } else if (serverCount > 0) {
+          console.log(`[Status] MCP: ${serverCount} servers configured, but no tools available`);
+        } else {
+          console.log('[Status] MCP: No servers configured');
+        }
       }
+    } catch (error) {
+      console.log(
+        '[Status] MCP initialization failed:',
+        error instanceof Error ? error.message : String(error)
+      );
     }
-  } catch (error) {
-    console.log(
-      '[Status] MCP initialization failed:',
-      error instanceof Error ? error.message : String(error)
-    );
+  } else {
+    console.log('[Status] MCP: No servers configured');
   }
 
   // Check Skills status
@@ -612,4 +621,12 @@ async function emitStatusMessages(config: CIAConfig): Promise<void> {
   } else {
     console.log('[Status] No enhanced capabilities available - using basic AI provider only');
   }
+}
+
+function getMcpServerCount(config: CIAConfig): number {
+  const structuredConfig = loadStructuredConfig(config);
+  if (!structuredConfig.mcp || !('servers' in structuredConfig.mcp)) {
+    return 0;
+  }
+  return Array.isArray(structuredConfig.mcp.servers) ? structuredConfig.mcp.servers.length : 0;
 }

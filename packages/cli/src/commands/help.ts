@@ -35,7 +35,7 @@ export function printHelpText(): void {
   console.log('');
   console.log('INPUT/OUTPUT:');
   console.log('  --input-file         Read prompt from file instead of command line');
-  console.log('  --output-file        Write result to file [default: result.json]');
+  console.log('  --output-file        Write result to file (only when explicitly set)');
   console.log('  --output-format      Output format (json|yaml|md|text)');
   console.log('  --context            Add context files/URLs (multiple allowed)');
   console.log('');
@@ -64,6 +64,7 @@ export function printHelpText(): void {
   console.log('');
   console.log('DEBUGGING:');
   console.log('  --log-level          Log level (DEBUG|INFO|WARN|ERROR) [default: INFO]');
+  console.log('  --verbose            Enable status/provider operational logs');
   console.log('');
   console.log('ENTERPRISE NETWORKING:');
   console.log('  HTTP_PROXY           Proxy for outbound HTTP requests');

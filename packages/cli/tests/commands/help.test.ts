@@ -39,6 +39,7 @@ describe('Help Command', () => {
     expect(allOutput).toContain('--schema-inline');
     expect(allOutput).toContain('--retries');
     expect(allOutput).toContain('--timeout');
+    expect(allOutput).toContain('--verbose');
   });
 
   it('should include provider options', () => {
@@ -62,6 +63,18 @@ describe('Help Command', () => {
     expect(allOutput).toContain('cia run "Explain how CI/CD works"');
     expect(allOutput).toContain('--schema-file user.schema.json');
     expect(allOutput).toContain('--context docs/api.md');
+  });
+
+  it('documents output-file as explicit only', () => {
+    printHelpText();
+
+    const allOutput = consoleSpy.mock.calls.flat().join('\n');
+    expect(allOutput).toContain(
+      '--output-file        Write result to file (only when explicitly set)'
+    );
+    expect(allOutput).not.toContain(
+      '--output-file        Write result to file [default: result.json]'
+    );
   });
 
   it('should document explicit configuration precedence without legacy env defaults', () => {

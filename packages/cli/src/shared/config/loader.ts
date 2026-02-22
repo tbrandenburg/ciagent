@@ -27,6 +27,7 @@ export interface CIAConfig {
   'api-version'?: string;
   org?: string;
   'log-level'?: string;
+  verbose?: boolean;
   skill?: string;
   network?: {
     'http-proxy'?: string;
