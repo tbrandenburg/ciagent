@@ -20,6 +20,7 @@ export interface OAuthTokens {
   expires_in?: number;
   token_type?: string;
   scope?: string;
+  issued_at?: number; // Unix timestamp when tokens were issued/refreshed
 }
 
 export interface OAuthClientMetadata {
@@ -280,8 +281,14 @@ export class McpOAuthProvider {
           // Exchange code for tokens
           const tokens = await this.exchangeCodeForTokens(code);
 
+          // Add issued_at timestamp before storing
+          const tokensWithTimestamp = {
+            ...tokens,
+            issued_at: Math.floor(Date.now() / 1000),
+          };
+
           // Store tokens
-          this.tokenStorage.setTokens(this.serverId, tokens);
+          this.tokenStorage.setTokens(this.serverId, tokensWithTimestamp);
 
           // Send success response
           res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -392,8 +399,13 @@ export class McpOAuthProvider {
         scope: refreshedToken.token.scope as string,
       };
 
-      this.tokenStorage.setTokens(this.serverId, tokens);
-      return tokens;
+      // Add issued_at timestamp before storing refreshed tokens
+      const tokensWithTimestamp = {
+        ...tokens,
+        issued_at: Math.floor(Date.now() / 1000),
+      };
+      this.tokenStorage.setTokens(this.serverId, tokensWithTimestamp);
+      return tokensWithTimestamp;
     } catch (error) {
       throw new Error(`Failed to refresh tokens: ${error}`);
     }
@@ -403,13 +415,16 @@ export class McpOAuthProvider {
    * Check if token is expired
    */
   private isTokenExpired(tokens: OAuthTokens): boolean {
-    if (!tokens.expires_in) {
-      return false; // If no expiry info, assume valid
+    if (!tokens.expires_in || !tokens.issued_at) {
+      return false; // If no expiry info or timestamp, assume valid for backward compatibility
     }
 
-    // For testing purposes, we'll be conservative and not refresh unless we have a proper timestamp
-    // In a real implementation, we'd store the issued_at time and compare
-    return false; // Assume tokens are still valid for testing
+    const currentTime = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+    const expirationTime = tokens.issued_at + tokens.expires_in;
+
+    // Add 5-minute buffer to refresh before actual expiration
+    const bufferSeconds = 5 * 60;
+    return currentTime >= expirationTime - bufferSeconds;
   }
 
   /**
