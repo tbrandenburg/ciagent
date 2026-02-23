@@ -168,7 +168,7 @@ describe('MCP Reliability Layer', () => {
       controller.abort();
 
       await expect(executeWithReliability(slowFn, { signal: controller.signal })).rejects.toThrow(
-        'The operation was aborted'
+        'This operation was aborted'
       );
 
       expect(slowFn).toHaveBeenCalledTimes(0); // Should not be called due to immediate abort
