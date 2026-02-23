@@ -10,6 +10,7 @@
 
 import { createHttpClient } from './http-client';
 import type { AxiosInstance, AxiosResponse } from 'axios';
+import type { CIAConfig } from '../shared/config/loader';
 
 /**
  * Parsed GitHub URL interface
@@ -242,28 +243,38 @@ export async function fetchIssueMetadata(
 /**
  * Create GitHub-specific HTTP client with rate limiting
  */
-const githubClient: AxiosInstance = createHttpClient(undefined, {
-  baseURL: 'https://api.github.com',
-  timeout: 30000,
-  retries: 3,
-});
+export function createGitHubClient(networkConfig?: CIAConfig['network']): AxiosInstance {
+  const client = createHttpClient(networkConfig, {
+    baseURL: 'https://api.github.com',
+    timeout: 30000,
+    retries: 3,
+  });
 
-// GitHub-specific rate limit handling
-githubClient.interceptors.response.use(
-  response => response,
-  async error => {
-    if (error.response?.status === 403) {
-      const rateLimitRemaining = error.response.headers['x-ratelimit-remaining'];
-      if (rateLimitRemaining === '0') {
-        const resetTime = error.response.headers['x-ratelimit-reset'];
-        const delay = parseInt(resetTime) * 1000 - Date.now();
-        await new Promise(resolve => setTimeout(resolve, Math.max(delay, 1000)));
-        return githubClient.request(error.config);
+  // GitHub-specific rate limit handling
+  client.interceptors.response.use(
+    response => response,
+    async error => {
+      if (error.response?.status === 403) {
+        const rateLimitRemaining = error.response.headers['x-ratelimit-remaining'];
+        if (rateLimitRemaining === '0') {
+          const resetTime = error.response.headers['x-ratelimit-reset'];
+          const delay = parseInt(resetTime) * 1000 - Date.now();
+          if (delay > 0 && delay < 60000) {
+            // Only wait up to 1 minute
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return client.request(error.config);
+          }
+        }
       }
+      throw error;
     }
-    throw error;
-  }
-);
+  );
+
+  return client;
+}
+
+// Default client for backward compatibility
+const githubClient: AxiosInstance = createGitHubClient();
 
 /**
  * Fetch GitHub data using axios client

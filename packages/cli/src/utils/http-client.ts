@@ -4,6 +4,37 @@ import { retry } from '../providers/mcp/reliability';
 
 type NetworkConfig = CIAConfig['network'];
 
+// Helper function to check if URL should bypass proxy
+function shouldBypassProxy(hostname: string, noProxyList?: string[]): boolean {
+  if (!noProxyList || noProxyList.length === 0) {
+    return false;
+  }
+
+  const host = hostname.toLowerCase();
+
+  return noProxyList.some(pattern => {
+    const p = pattern.toLowerCase().trim();
+
+    // Exact match
+    if (p === host) {
+      return true;
+    }
+
+    // Wildcard pattern (*.example.com)
+    if (p.startsWith('*.')) {
+      const domain = p.slice(2);
+      return host === domain || host.endsWith('.' + domain);
+    }
+
+    // Domain suffix (.example.com)
+    if (p.startsWith('.')) {
+      return host.endsWith(p);
+    }
+
+    return false;
+  });
+}
+
 export interface HttpClientConfig {
   timeout?: number;
   retries?: number;
@@ -14,13 +45,32 @@ export function createHttpClient(
   networkConfig?: CIAConfig['network'],
   clientConfig?: HttpClientConfig
 ): AxiosInstance {
+  const proxyConfig = createProxyConfig(networkConfig);
+
   const axiosConfig: AxiosRequestConfig = {
     timeout: clientConfig?.timeout || 30000,
     // Complete proxy configuration with no-proxy support
-    proxy: createProxyConfig(networkConfig),
+    proxy: proxyConfig,
   };
 
+  if (clientConfig?.baseURL) {
+    axiosConfig.baseURL = clientConfig.baseURL;
+  }
+
   const client = axios.create(axiosConfig);
+
+  // Add no-proxy bypass interceptor
+  if (networkConfig?.['no-proxy'] && proxyConfig) {
+    client.interceptors.request.use(config => {
+      if (config.url) {
+        const url = new URL(config.url, config.baseURL);
+        if (shouldBypassProxy(url.hostname, networkConfig['no-proxy'])) {
+          config.proxy = false;
+        }
+      }
+      return config;
+    });
+  }
 
   // Request interceptor for logging
   client.interceptors.request.use(config => {

@@ -2,16 +2,31 @@ import { describe, it, expect } from 'vitest';
 import { createHttpClient } from '../../src/utils/http-client';
 
 describe('Proxy Integration Tests', () => {
-  it('should configure no-proxy domains', () => {
+  it('should configure no-proxy bypass functionality', () => {
     // Test configuration with no-proxy list
     const client = createHttpClient({
       'http-proxy': 'http://mock-proxy:8080',
       'no-proxy': ['localhost', '*.internal.com'],
     });
 
-    // Verify proxy is configured (no-proxy handling is future enhancement)
+    // Verify proxy is configured
     expect(client.defaults.proxy).toBeTruthy();
     expect(client.defaults.proxy).not.toBe(false);
+
+    const proxyConfig = client.defaults.proxy as any;
+    expect(proxyConfig.host).toBe('mock-proxy');
+
+    // Verify no-proxy interceptor is added
+    expect(client.interceptors.request.handlers).toHaveLength(2); // no-proxy + logging
+  });
+
+  it('should handle proxy configuration without no-proxy', () => {
+    const client = createHttpClient({
+      'http-proxy': 'http://mock-proxy:8080',
+    });
+
+    // Should only have logging interceptor when no no-proxy is configured
+    expect(client.interceptors.request.handlers).toHaveLength(1); // only logging
 
     const proxyConfig = client.defaults.proxy as any;
     expect(proxyConfig.host).toBe('mock-proxy');
