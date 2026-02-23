@@ -9,8 +9,10 @@
  */
 
 import YAML from 'yaml';
+import ignore from 'ignore';
 import { readFileSync, existsSync, statSync, readdirSync } from 'fs';
 import { resolve, join, extname, relative } from 'path';
+import { tmpdir } from 'os';
 
 /**
  * File metadata interface
@@ -237,14 +239,24 @@ export function getFolderListing(folderPath: string): FolderListing {
     let totalSize = 0;
 
     // Load .gitignore if it exists
-    const gitignorePatterns = loadGitignorePatterns(resolvedPath);
+    const ig = loadGitignorePatterns(resolvedPath);
 
     for (const entry of entries) {
       const entryPath = join(resolvedPath, entry);
       const relativePath = relative(resolvedPath, entryPath);
 
+      // Check if this is a directory to properly handle .gitignore patterns
+      let isDirectory = false;
+      try {
+        const stat = statSync(entryPath);
+        isDirectory = stat.isDirectory();
+      } catch {
+        // Skip inaccessible entries
+        continue;
+      }
+
       // Skip if matches .gitignore patterns
-      if (shouldIgnoreFile(relativePath, gitignorePatterns)) {
+      if (shouldIgnoreFile(relativePath, ig, isDirectory)) {
         continue;
       }
 
@@ -278,60 +290,31 @@ export function getFolderListing(folderPath: string): FolderListing {
 /**
  * Load .gitignore patterns from a directory
  */
-function loadGitignorePatterns(dirPath: string): string[] {
-  const gitignorePath = join(dirPath, '.gitignore');
-
+function loadGitignorePatterns(folderPath: string): ReturnType<typeof ignore> | null {
   try {
-    if (existsSync(gitignorePath)) {
-      const content = readFileSync(gitignorePath, 'utf-8');
-      return content
-        .split('\n')
-        .map((line: string) => line.trim())
-        .filter((line: string) => line && !line.startsWith('#'));
-    }
-  } catch (error) {
-    // Ignore .gitignore loading errors
-    console.error(
-      `Warning: Cannot load .gitignore from "${dirPath}": ${error instanceof Error ? error.message : String(error)}`
-    );
+    const gitignorePath = join(folderPath, '.gitignore');
+    const content = readFileSync(gitignorePath, 'utf-8');
+    return ignore().add(content);
+  } catch {
+    return null;
   }
-
-  return [];
 }
 
-/**
- * Check if file should be ignored based on .gitignore patterns
- * Basic implementation - supports simple patterns and wildcards
- */
-function shouldIgnoreFile(relativePath: string, patterns: string[]): boolean {
-  for (const pattern of patterns) {
-    if (matchesGitignorePattern(relativePath, pattern)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/**
- * Simple gitignore pattern matching
- * Supports basic patterns with * wildcards
- */
-function matchesGitignorePattern(path: string, pattern: string): boolean {
-  // Convert gitignore pattern to regex
-  let regexPattern = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars
-    .replace(/\*/g, '.*') // Convert * to .*
-    .replace(/\?/g, '.'); // Convert ? to .
-
-  // Handle directory patterns
-  if (pattern.endsWith('/')) {
-    regexPattern = regexPattern.slice(0, -1) + '(/.*)?$';
-  } else {
-    regexPattern = `^${regexPattern}$`;
+function shouldIgnoreFile(
+  relativePath: string,
+  ig: ReturnType<typeof ignore> | null,
+  isDirectory: boolean = false
+): boolean {
+  if (!ig) {
+    return false;
   }
 
-  const regex = new RegExp(regexPattern);
-  return regex.test(path) || regex.test(path.split('/').pop() || '');
+  // For directories, check both with and without trailing slash
+  if (isDirectory) {
+    return ig.ignores(relativePath) || ig.ignores(relativePath + '/');
+  }
+
+  return ig.ignores(relativePath);
 }
 
 /**
@@ -340,22 +323,42 @@ function matchesGitignorePattern(path: string, pattern: string): boolean {
  * @returns True if path is safe
  */
 export function isValidPath(path: string): boolean {
-  try {
-    // Simple validation - prevent obvious traversal patterns
-    const dangerousPatterns = [
-      '../',
-      '..\\', // Parent directory traversal
-      '/etc/',
-      '\\Windows\\', // System directories
-      '/proc/',
-      '/sys/', // System filesystems
-      '~/', // Home directory shortcuts
-    ];
-
-    return !dangerousPatterns.some(pattern => path.toLowerCase().includes(pattern.toLowerCase()));
-  } catch (error) {
+  if (!path || path.trim() === '') {
     return false;
   }
+
+  try {
+    // Use Node.js path resolution for proper validation
+    const resolved = resolve(path);
+    const rel = relative(process.cwd(), resolved);
+
+    // Allow paths within current working directory
+    if (!rel.startsWith('..')) {
+      return !isDangerousSystemPath(resolved);
+    }
+
+    // Allow access to system temp directory for legitimate use cases (like tests)
+    const tmpDir = tmpdir();
+    const relToTmp = relative(tmpDir, resolved);
+    if (!relToTmp.startsWith('..')) {
+      return !isDangerousSystemPath(resolved);
+    }
+
+    // Reject all other path traversal attempts
+    return false;
+  } catch {
+    return false; // Invalid path format
+  }
+}
+
+function isDangerousSystemPath(resolved: string): boolean {
+  const normalized = resolved.toLowerCase();
+  const dangerousPaths = ['/etc/', '/proc/', '/sys/', '/boot/'];
+  if (process.platform === 'win32') {
+    dangerousPaths.push('\\windows\\', '\\system32\\');
+  }
+
+  return dangerousPaths.some(dangerous => normalized.includes(dangerous));
 }
 
 /**
