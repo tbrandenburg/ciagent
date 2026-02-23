@@ -3,6 +3,8 @@
  * Provides connection timeout management, graceful degradation, retry logic, and health monitoring
  */
 
+import pRetry, { AbortError } from 'p-retry';
+
 // Default timeout for MCP operations (30 seconds)
 export const DEFAULT_TIMEOUT = 30000;
 
@@ -15,6 +17,8 @@ export interface RetryOptions {
   factor?: number;
   maxDelay?: number;
   retryIf?: (error: unknown) => boolean;
+  randomize?: boolean; // New: Enable jitter in backoff
+  signal?: AbortSignal; // New: Support abort signals
 }
 
 /**
@@ -52,7 +56,9 @@ const TRANSIENT_MESSAGES = [
  * Determines if an error is transient and should be retried
  */
 function isTransientError(error: unknown): boolean {
-  if (!error) {return false;}
+  if (!error) {
+    return false;
+  }
   const message = String(error instanceof Error ? error.message : error).toLowerCase();
   return TRANSIENT_MESSAGES.some(m => message.includes(m));
 }
@@ -87,20 +93,27 @@ export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {})
     retryIf = isTransientError,
   } = options;
 
-  let lastError: unknown;
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error;
-      if (attempt === attempts - 1 || !retryIf(error)) {throw error;}
-
-      // Calculate exponential backoff delay
-      const wait = Math.min(delay * Math.pow(factor, attempt), maxDelay);
-      await new Promise(resolve => setTimeout(resolve, wait));
+  return pRetry(
+    async () => {
+      try {
+        return await fn();
+      } catch (error) {
+        // Convert non-retryable errors to AbortError to prevent retries
+        if (!retryIf(error)) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          throw new AbortError(errorMsg);
+        }
+        throw error;
+      }
+    },
+    {
+      retries: attempts - 1, // p-retry uses retries, not attempts
+      factor,
+      minTimeout: delay,
+      maxTimeout: maxDelay,
+      randomize: false, // Keep current behavior, can be enabled later
     }
-  }
-  throw lastError;
+  );
 }
 
 /**
@@ -111,11 +124,39 @@ export async function executeWithReliability<T>(
   options: {
     timeout?: number;
     retryOptions?: RetryOptions;
+    signal?: AbortSignal;
   } = {}
 ): Promise<T> {
-  const { timeout = DEFAULT_TIMEOUT, retryOptions } = options;
+  const { timeout = DEFAULT_TIMEOUT, retryOptions, signal } = options;
 
-  return retry(() => withTimeout(operation(), timeout), retryOptions);
+  // Use p-retry directly for better integration and timeout handling
+  return pRetry(
+    async () => {
+      if (signal?.aborted) {
+        throw new AbortError('Operation aborted');
+      }
+
+      try {
+        return await withTimeout(operation(), timeout);
+      } catch (error) {
+        // Apply custom retry condition if provided
+        if (retryOptions?.retryIf && !retryOptions.retryIf(error)) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          throw new AbortError(errorMsg);
+        }
+        throw error;
+      }
+    },
+    {
+      retries: (retryOptions?.attempts || 3) - 1,
+      factor: retryOptions?.factor || 2,
+      minTimeout: retryOptions?.delay || 500,
+      maxTimeout: retryOptions?.maxDelay || 10000,
+      maxRetryTime: timeout * ((retryOptions?.attempts || 3) + 1), // Retry window
+      signal,
+      randomize: false,
+    }
+  );
 }
 
 /**
@@ -130,7 +171,9 @@ export class MCPConnectionMonitor {
    * Start monitoring MCP connections
    */
   startMonitoring(): void {
-    if (this.monitoringInterval) {return;}
+    if (this.monitoringInterval) {
+      return;
+    }
 
     this.monitoringInterval = setInterval(() => {
       this.checkAllConnections();
@@ -191,7 +234,9 @@ export class MCPConnectionMonitor {
    */
   isHealthy(serverId: string): boolean {
     const health = this.healthStatus.get(serverId);
-    if (!health) {return false;}
+    if (!health) {
+      return false;
+    }
 
     // Consider unhealthy if error count exceeds threshold or last check was too long ago
     const maxErrors = 3;
@@ -241,6 +286,7 @@ export async function withGracefulDegradation<T>(
   options: {
     timeout?: number;
     retryOptions?: RetryOptions;
+    signal?: AbortSignal;
     onError?: (error: unknown) => void;
   } = {}
 ): Promise<T> {
@@ -248,6 +294,7 @@ export async function withGracefulDegradation<T>(
     return await executeWithReliability(operation, {
       timeout: options.timeout,
       retryOptions: options.retryOptions,
+      signal: options.signal,
     });
   } catch (error) {
     options.onError?.(error);
