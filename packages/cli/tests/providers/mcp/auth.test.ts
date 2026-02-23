@@ -224,6 +224,53 @@ describe('MCP OAuth Authentication', () => {
         expect(tokens).toBeDefined();
       });
     });
+
+    describe('token expiration logic', () => {
+      it('should return false for tokens without expires_in', () => {
+        const tokens: OAuthTokens = { access_token: 'test' };
+        const provider = new McpOAuthProvider(testServerId, testServerUrl, testConfig);
+        expect((provider as any).isTokenExpired(tokens)).toBe(false);
+      });
+
+      it('should return false for tokens without issued_at', () => {
+        const tokens: OAuthTokens = {
+          access_token: 'test',
+          expires_in: 3600,
+        };
+        const provider = new McpOAuthProvider(testServerId, testServerUrl, testConfig);
+        expect((provider as any).isTokenExpired(tokens)).toBe(false);
+      });
+
+      it('should return false for fresh tokens', () => {
+        const tokens: OAuthTokens = {
+          access_token: 'test',
+          expires_in: 3600,
+          issued_at: Math.floor(Date.now() / 1000),
+        };
+        const provider = new McpOAuthProvider(testServerId, testServerUrl, testConfig);
+        expect((provider as any).isTokenExpired(tokens)).toBe(false);
+      });
+
+      it('should return true for expired tokens', () => {
+        const tokens: OAuthTokens = {
+          access_token: 'test',
+          expires_in: 3600,
+          issued_at: Math.floor(Date.now() / 1000) - 3700, // Expired 100 seconds ago
+        };
+        const provider = new McpOAuthProvider(testServerId, testServerUrl, testConfig);
+        expect((provider as any).isTokenExpired(tokens)).toBe(true);
+      });
+
+      it('should return true for tokens expiring soon (within buffer)', () => {
+        const tokens: OAuthTokens = {
+          access_token: 'test',
+          expires_in: 3600,
+          issued_at: Math.floor(Date.now() / 1000) - 3400, // Expires in 200 seconds, within 5-minute buffer
+        };
+        const provider = new McpOAuthProvider(testServerId, testServerUrl, testConfig);
+        expect((provider as any).isTokenExpired(tokens)).toBe(true);
+      });
+    });
   });
 
   describe('createOAuthProvider factory', () => {
