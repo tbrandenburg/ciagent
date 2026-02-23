@@ -2,6 +2,8 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { CIAConfig } from '../shared/config/loader';
 import { retry } from '../providers/mcp/reliability';
 
+type NetworkConfig = CIAConfig['network'];
+
 export interface HttpClientConfig {
   timeout?: number;
   retries?: number;
@@ -14,14 +16,8 @@ export function createHttpClient(
 ): AxiosInstance {
   const axiosConfig: AxiosRequestConfig = {
     timeout: clientConfig?.timeout || 30000,
-    // Axios handles proxy configuration automatically from environment
-    proxy: networkConfig?.['http-proxy']
-      ? {
-          host: new URL(networkConfig['http-proxy']).hostname,
-          port: parseInt(new URL(networkConfig['http-proxy']).port) || 8080,
-          protocol: new URL(networkConfig['http-proxy']).protocol.slice(0, -1),
-        }
-      : false,
+    // Complete proxy configuration with no-proxy support
+    proxy: createProxyConfig(networkConfig),
   };
 
   const client = axios.create(axiosConfig);
@@ -46,4 +42,43 @@ export function createHttpClient(
   );
 
   return client;
+}
+
+// Add helper function for proxy configuration
+function createProxyConfig(networkConfig?: NetworkConfig) {
+  if (!networkConfig) {
+    return false;
+  }
+
+  const httpProxy = networkConfig['http-proxy'];
+  const httpsProxy = networkConfig['https-proxy'];
+
+  // If no proxies configured, return false
+  if (!httpProxy && !httpsProxy) {
+    return false;
+  }
+
+  // Axios uses a single proxy config, prefer HTTPS proxy for secure connections
+  const proxyUrl = httpsProxy || httpProxy;
+  if (!proxyUrl) {
+    return false;
+  }
+
+  return parseProxyUrl(proxyUrl);
+}
+
+function parseProxyUrl(proxyUrl: string) {
+  const url = new URL(proxyUrl);
+  return {
+    host: url.hostname,
+    port: parseInt(url.port) || (url.protocol === 'https:' ? 443 : 8080),
+    protocol: url.protocol.slice(0, -1),
+    auth:
+      url.username && url.password
+        ? {
+            username: url.username,
+            password: url.password,
+          }
+        : undefined,
+  };
 }
