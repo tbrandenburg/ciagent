@@ -529,7 +529,7 @@ describe('Context Processors', () => {
       const result = await processFolderContext(maliciousPath);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Cannot list folder'); // Match actual error message
+      expect(result.error).toContain('Invalid folder path: path traversal detected'); // Match actual error message
     });
 
     it('validates GitHub URLs for SSRF protection', async () => {
@@ -558,7 +558,7 @@ describe('Context Processors', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBeDefined();
-      expect(result.error).toContain('Cannot');
+      expect(result.error).toContain('Invalid file path: path traversal detected');
       expect(typeof result.error).toBe('string');
     });
   });
