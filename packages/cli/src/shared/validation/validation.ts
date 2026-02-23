@@ -104,7 +104,7 @@ export function validateConfig(config: CIAConfig): ValidationResult {
   }
 
   if (config.timeout !== undefined) {
-    if (isNaN(config.timeout) || config.timeout <= 0) {
+    if (isNaN(config.timeout) || config.timeout < 0) {
       errors.push(`Invalid timeout: ${config.timeout}. Must be a positive number.`);
     }
   }

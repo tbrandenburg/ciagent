@@ -60,9 +60,11 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     }
 
     const abortController = new AbortController();
-    timeoutId = setTimeout(() => {
-      abortController.abort();
-    }, timeoutMs);
+    if (timeoutSeconds > 0) {
+      timeoutId = setTimeout(() => {
+        abortController.abort();
+      }, timeoutMs);
+    }
 
     // Check if operation was aborted before starting
     if (abortController.signal.aborted) {
@@ -72,19 +74,22 @@ export async function runCommand(args: string[], config: CIAConfig): Promise<num
     const chunkIterator = assistant
       .sendQuery(enhancedPrompt, process.cwd())
       [Symbol.asyncIterator]();
-    const hardDeadline = Date.now() + timeoutMs;
+    const hardDeadline = timeoutSeconds > 0 ? Date.now() + timeoutMs : Number.MAX_SAFE_INTEGER;
 
     while (true) {
-      const remainingMs = hardDeadline - Date.now();
-      if (remainingMs <= 0 || abortController.signal.aborted) {
+      const remainingMs = timeoutSeconds > 0 ? hardDeadline - Date.now() : Number.MAX_SAFE_INTEGER;
+      if ((timeoutSeconds > 0 && remainingMs <= 0) || abortController.signal.aborted) {
         throw new Error(`Operation timed out after ${timeoutSeconds} seconds`);
       }
 
-      const nextChunk = await withTimeout(
-        chunkIterator.next(),
-        remainingMs,
-        `Operation timed out after ${timeoutSeconds} seconds`
-      );
+      const nextChunk =
+        timeoutSeconds > 0
+          ? await withTimeout(
+              chunkIterator.next(),
+              remainingMs,
+              `Operation timed out after ${timeoutSeconds} seconds`
+            )
+          : await chunkIterator.next();
 
       if (nextChunk.done) {
         break;
