@@ -104,6 +104,34 @@ describe('MCP Reliability Layer', () => {
       expect(failFn).toHaveBeenCalledTimes(2);
       expect(shouldRetry).toHaveBeenCalledWith(customError);
     });
+
+    test('should use p-retry under the hood', async () => {
+      // Verify p-retry specific behaviors like proper backoff timing
+      const start = Date.now();
+      const retryOptions = { attempts: 3, delay: 100, factor: 2 };
+
+      let callCount = 0;
+      const operation = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount < 3) throw new Error('failed to fetch');
+        return 'success';
+      });
+
+      await retry(operation, retryOptions);
+
+      const elapsed = Date.now() - start;
+      // p-retry should respect timing: ~0ms + ~100ms + ~200ms = ~300ms minimum
+      expect(elapsed).toBeGreaterThan(250);
+      expect(operation).toHaveBeenCalledTimes(3);
+    });
+
+    test('should handle AbortError for non-retryable errors', async () => {
+      const retryIf = vi.fn().mockReturnValue(false);
+      const operation = vi.fn().mockRejectedValue(new Error('non-retryable'));
+
+      await expect(retry(operation, { retryIf })).rejects.toThrow('non-retryable');
+      expect(operation).toHaveBeenCalledTimes(1); // No retries for AbortError
+    });
   });
 
   describe('executeWithReliability', () => {
@@ -126,6 +154,24 @@ describe('MCP Reliability Layer', () => {
 
       expect(result).toBe('success');
       expect(fastSuccessFn).toHaveBeenCalledTimes(1);
+    });
+
+    test('respects abort signal', async () => {
+      const controller = new AbortController();
+      const slowFn = vi
+        .fn()
+        .mockImplementation(
+          () => new Promise(resolve => setTimeout(() => resolve('success'), 200))
+        );
+
+      // Abort immediately
+      controller.abort();
+
+      await expect(executeWithReliability(slowFn, { signal: controller.signal })).rejects.toThrow(
+        'The operation was aborted'
+      );
+
+      expect(slowFn).toHaveBeenCalledTimes(0); // Should not be called due to immediate abort
     });
   });
 
