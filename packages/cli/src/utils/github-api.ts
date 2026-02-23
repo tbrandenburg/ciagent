@@ -8,6 +8,9 @@
  * - Exponential backoff for rate limiting
  */
 
+import { createHttpClient } from './http-client';
+import type { AxiosInstance, AxiosResponse } from 'axios';
+
 /**
  * Parsed GitHub URL interface
  */
@@ -50,23 +53,6 @@ export interface GitHubIssueMetadata {
   url: string;
   labels: string[];
 }
-
-/**
- * Rate limiting configuration
- */
-interface RateLimitConfig {
-  maxRetries: number;
-  baseDelay: number; // milliseconds
-  maxDelay: number; // milliseconds
-  backoffMultiplier: number;
-}
-
-const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
-  maxRetries: 3,
-  baseDelay: 1000,
-  maxDelay: 30000,
-  backoffMultiplier: 2,
-};
 
 /**
  * Parse GitHub URL to extract organization, repository, and number
@@ -199,17 +185,8 @@ export async function fetchPRMetadata(
   number: number,
   token?: string
 ): Promise<GitHubPRMetadata> {
-  const url = `https://api.github.com/repos/${org}/${repo}/pulls/${number}`;
-
-  const response = await fetchWithRetry(url, {
-    headers: {
-      Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'ciagent-cli/0.1.0',
-      ...(token && { Authorization: `token ${token}` }),
-    },
-  });
-
-  const data = (await response.json()) as any; // GitHub API response
+  const endpoint = `/repos/${org}/${repo}/pulls/${number}`;
+  const data = await fetchGitHubData(endpoint, token);
 
   return {
     id: data.id,
@@ -218,11 +195,11 @@ export async function fetchPRMetadata(
     body: data.body || '',
     state: data.merged ? 'merged' : data.state,
     author: data.user?.login || 'unknown',
+    head_ref: data.head?.ref || '',
+    base_ref: data.base?.ref || '',
     created_at: data.created_at,
     updated_at: data.updated_at,
     url: data.html_url,
-    head_ref: data.head?.ref || '',
-    base_ref: data.base?.ref || '',
   };
 }
 
@@ -240,21 +217,12 @@ export async function fetchIssueMetadata(
   number: number,
   token?: string
 ): Promise<GitHubIssueMetadata> {
-  const url = `https://api.github.com/repos/${org}/${repo}/issues/${number}`;
-
-  const response = await fetchWithRetry(url, {
-    headers: {
-      Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'ciagent-cli/0.1.0',
-      ...(token && { Authorization: `token ${token}` }),
-    },
-  });
-
-  const data = (await response.json()) as any; // GitHub API response
+  const endpoint = `/repos/${org}/${repo}/issues/${number}`;
+  const data = await fetchGitHubData(endpoint, token);
 
   // Note: PRs are also returned by the issues API, so we need to check
   if (data.pull_request) {
-    throw new Error(`Issue ${number} is actually a pull request. Use fetchPRMetadata instead.`);
+    throw new Error('This is a pull request, not an issue. Use fetchPRMetadata instead.');
   }
 
   return {
@@ -272,94 +240,39 @@ export async function fetchIssueMetadata(
 }
 
 /**
- * Fetch with exponential backoff retry logic for rate limiting
- * @param url URL to fetch
- * @param options Fetch options
- * @param config Rate limiting configuration
- * @returns Response object
+ * Create GitHub-specific HTTP client with rate limiting
  */
-async function fetchWithRetry(
-  url: string,
-  options: RequestInit = {},
-  config: RateLimitConfig = DEFAULT_RATE_LIMIT_CONFIG
-): Promise<Response> {
-  let lastError: Error | null = null;
+const githubClient: AxiosInstance = createHttpClient(undefined, {
+  baseURL: 'https://api.github.com',
+  timeout: 30000,
+  retries: 3,
+});
 
-  for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, options);
-
-      // Handle rate limiting (GitHub returns 403 for rate limits)
-      if (response.status === 403) {
-        const rateLimitRemaining = response.headers.get('x-ratelimit-remaining');
-        const rateLimitReset = response.headers.get('x-ratelimit-reset');
-
-        if (rateLimitRemaining === '0') {
-          if (attempt < config.maxRetries) {
-            // Calculate delay based on reset time or exponential backoff
-            let delay = config.baseDelay * Math.pow(config.backoffMultiplier, attempt);
-
-            if (rateLimitReset) {
-              const resetTime = parseInt(rateLimitReset, 10) * 1000;
-              const now = Date.now();
-              const timeUntilReset = Math.max(0, resetTime - now);
-
-              // Use the smaller of exponential backoff or time until reset + buffer
-              delay = Math.min(delay, timeUntilReset + 5000);
-            }
-
-            delay = Math.min(delay, config.maxDelay);
-
-            console.error(
-              `GitHub API rate limit exceeded. Retrying in ${delay}ms (attempt ${attempt + 1}/${config.maxRetries + 1})`
-            );
-            await sleep(delay);
-            continue;
-          }
-        }
-      }
-
-      // Handle other HTTP errors
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`GitHub API error ${response.status}: ${errorText}`);
-      }
-
-      return response;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      // Don't retry on certain errors
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        // Network error - might be worth retrying
-      } else if (lastError.message.includes('GitHub API error 4')) {
-        // 4xx errors (except rate limiting) shouldn't be retried
-        throw lastError;
-      }
-
-      if (attempt < config.maxRetries) {
-        const delay = Math.min(
-          config.baseDelay * Math.pow(config.backoffMultiplier, attempt),
-          config.maxDelay
-        );
-
-        console.error(
-          `Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${config.maxRetries + 1}): ${lastError.message}`
-        );
-        await sleep(delay);
+// GitHub-specific rate limit handling
+githubClient.interceptors.response.use(
+  response => response,
+  async error => {
+    if (error.response?.status === 403) {
+      const rateLimitRemaining = error.response.headers['x-ratelimit-remaining'];
+      if (rateLimitRemaining === '0') {
+        const resetTime = error.response.headers['x-ratelimit-reset'];
+        const delay = parseInt(resetTime) * 1000 - Date.now();
+        await new Promise(resolve => setTimeout(resolve, Math.max(delay, 1000)));
+        return githubClient.request(error.config);
       }
     }
+    throw error;
   }
-
-  throw lastError || new Error('Max retries exceeded');
-}
+);
 
 /**
- * Sleep utility function
- * @param ms Milliseconds to sleep
+ * Fetch GitHub data using axios client
  */
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+export async function fetchGitHubData(endpoint: string, token?: string): Promise<any> {
+  const response: AxiosResponse = await githubClient.get(endpoint, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  return response.data;
 }
 
 /**

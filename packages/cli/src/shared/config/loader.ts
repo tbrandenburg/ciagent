@@ -34,7 +34,8 @@ export interface CIAConfig {
     'https-proxy'?: string;
     'no-proxy'?: string[];
     'ca-bundle-path'?: string;
-    'use-env-proxy'?: boolean;
+    timeout?: number;
+    retries?: number;
   };
   providers?: {
     [providerName: string]: {
@@ -98,9 +99,8 @@ function loadNetworkConfigFromEnv(): CIAConfig['network'] | undefined {
   const httpsProxy = readNonEmptyEnv('HTTPS_PROXY');
   const noProxy = parseNoProxy(process.env.NO_PROXY);
   const caBundlePath = readNonEmptyEnv('NODE_EXTRA_CA_CERTS');
-  const useEnvProxy = parseBooleanEnv(process.env.NODE_USE_ENV_PROXY);
 
-  if (!httpProxy && !httpsProxy && !noProxy && !caBundlePath && useEnvProxy === undefined) {
+  if (!httpProxy && !httpsProxy && !noProxy && !caBundlePath) {
     return undefined;
   }
 
@@ -109,7 +109,6 @@ function loadNetworkConfigFromEnv(): CIAConfig['network'] | undefined {
     ...(httpsProxy && { 'https-proxy': httpsProxy }),
     ...(noProxy && { 'no-proxy': noProxy }),
     ...(caBundlePath && { 'ca-bundle-path': caBundlePath }),
-    ...(useEnvProxy !== undefined && { 'use-env-proxy': useEnvProxy }),
   };
 }
 
@@ -134,21 +133,6 @@ function parseNoProxy(value: string | undefined): string[] | undefined {
     .filter(entry => entry.length > 0);
 
   return parsed.length > 0 ? parsed : undefined;
-}
-
-function parseBooleanEnv(value: string | undefined): boolean | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (normalized === '1' || normalized === 'true') {
-    return true;
-  }
-  if (normalized === '0' || normalized === 'false') {
-    return false;
-  }
-  return undefined;
 }
 
 function loadDotEnvFile(filePath: string): void {

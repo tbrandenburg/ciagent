@@ -83,9 +83,6 @@ function applyNetworkEnv(
   if (network['ca-bundle-path']) {
     baseEnv.NODE_EXTRA_CA_CERTS = network['ca-bundle-path'];
   }
-  if (network['use-env-proxy'] !== undefined) {
-    baseEnv.NODE_USE_ENV_PROXY = network['use-env-proxy'] ? '1' : '0';
-  }
 
   return baseEnv;
 }
