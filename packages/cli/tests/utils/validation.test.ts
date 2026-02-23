@@ -81,6 +81,18 @@ describe('Input Validation', () => {
       expect(result.errors).toContain('Invalid timeout: -5. Must be a positive number.');
     });
 
+    it('should accept timeout value of 0 (no timeout mode)', () => {
+      const result = validateConfig({ timeout: 0 });
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+    });
+
+    it('should reject negative timeout values', () => {
+      const result = validateConfig({ timeout: -1 });
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Invalid timeout: -1. Must be a positive number.');
+    });
+
     it('should validate retries is non-negative', () => {
       const invalidConfig: CIAConfig = { retries: -1 };
       const result = validateConfig(invalidConfig);

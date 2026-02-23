@@ -395,6 +395,34 @@ describe('runCommand', () => {
       errorSpy.mockRestore();
     });
 
+    it('should not timeout when timeout is 0 (no timeout mode)', async () => {
+      const mockAssistantChat = {
+        sendQuery: () =>
+          makeGenerator([
+            { type: 'assistant', content: 'processing...' },
+            { type: 'assistant', content: 'still working...' },
+            { type: 'assistant', content: 'done' },
+          ]),
+        getType: () => 'codex',
+        listModels: vi.fn().mockResolvedValue(['codex-v1']),
+      };
+
+      // Simulate slow provider that would normally timeout
+      vi.spyOn(providers, 'createAssistantChat').mockImplementation(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100)); // Longer than normal test delays
+        return mockAssistantChat;
+      });
+
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const exitCode = await runCommand(['long task'], { provider: 'codex', timeout: 0 });
+
+      expect(exitCode).toBe(0);
+      expect(logSpy).toHaveBeenCalledWith('done');
+
+      logSpy.mockRestore();
+    });
+
     it('fails loudly when assistant output exceeds configured cap', async () => {
       const largeChunk = 'x'.repeat(1024 * 1024 + 1);
       const mockAssistantChat = {
