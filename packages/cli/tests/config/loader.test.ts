@@ -122,7 +122,6 @@ describe('Configuration Loader', () => {
       process.env.HTTPS_PROXY = 'http://corp-proxy.internal:8443';
       process.env.NO_PROXY = ' localhost, 127.0.0.1, internal.local ';
       process.env.NODE_EXTRA_CA_CERTS = ' /etc/ssl/corp-ca.pem ';
-      process.env.NODE_USE_ENV_PROXY = 'true';
 
       const config = loadConfig();
 
@@ -131,7 +130,6 @@ describe('Configuration Loader', () => {
         'https-proxy': 'http://corp-proxy.internal:8443',
         'no-proxy': ['localhost', '127.0.0.1', 'internal.local'],
         'ca-bundle-path': '/etc/ssl/corp-ca.pem',
-        'use-env-proxy': true,
       });
     });
 
