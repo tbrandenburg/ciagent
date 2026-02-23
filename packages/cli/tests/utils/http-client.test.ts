@@ -42,20 +42,31 @@ describe('HTTP Client Proxy Configuration', () => {
     });
   });
 
-  it('should store no-proxy configuration', () => {
+  it('should handle no-proxy configuration', () => {
     const client = createHttpClient({
       'http-proxy': 'http://proxy.company.com:8080',
-      'no-proxy': ['localhost', '*.internal.com', '192.168.*'],
+      'no-proxy': ['localhost', '*.internal.com'],
     });
 
-    // Check that proxy is configured
-    expect(client.defaults.proxy).toBeTruthy();
-    expect(client.defaults.proxy).not.toBe(false);
+    // Check that proxy is configured by default
+    expect(client.defaults.proxy).toEqual({
+      host: 'proxy.company.com',
+      port: 8080,
+      protocol: 'http',
+      auth: undefined,
+    });
 
-    // Note: no-proxy handling will be implemented at request level
-    // as axios doesn't natively support no-proxy lists
-    const proxyConfig = client.defaults.proxy as any;
-    expect(proxyConfig.host).toBe('proxy.company.com');
+    // Test that no-proxy interceptor is added when no-proxy is configured
+    expect(client.interceptors.request.handlers).toHaveLength(2); // no-proxy + logging interceptors
+  });
+
+  it('should not add no-proxy interceptor when no no-proxy configuration', () => {
+    const client = createHttpClient({
+      'http-proxy': 'http://proxy.company.com:8080',
+    });
+
+    // Should only have the logging interceptor, not the no-proxy interceptor
+    expect(client.interceptors.request.handlers).toHaveLength(1); // only logging interceptor
   });
 
   it('should handle proxy authentication', () => {
