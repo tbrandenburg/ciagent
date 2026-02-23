@@ -4,19 +4,35 @@ import type { CIAConfig } from '../../src/shared/config/loader.js';
 
 // Mock the SkillsManager
 const mockSkillsManager = {
-  initialize: vi.fn(),
-  discoverSkills: vi.fn(),
-  listSkills: vi.fn(),
-  getSkill: vi.fn(),
-  searchSkills: vi.fn(),
-  getStatusInfo: vi.fn(),
-  installFromSource: vi.fn(),
-  uninstallSkill: vi.fn(),
-  updateSkill: vi.fn(),
+  initialize: vi.fn(async function initialize(): Promise<any> {}),
+  discoverSkills: vi.fn(async function discoverSkills(): Promise<any> {}),
+  listSkills: vi.fn(function listSkills(): any {
+    return [];
+  }),
+  getSkill: vi.fn(function getSkill(_name: any): any {
+    return undefined;
+  }),
+  searchSkills: vi.fn(function searchSkills(_query: any): any {
+    return [];
+  }),
+  getStatusInfo: vi.fn(function getStatusInfo(): any {
+    return {};
+  }),
+  installFromSource: vi.fn(async function installFromSource(_source: any): Promise<any> {
+    return { success: false };
+  }),
+  uninstallSkill: vi.fn(async function uninstallSkill(_skillName: any): Promise<any> {
+    return { success: false };
+  }),
+  updateSkill: vi.fn(async function updateSkill(_skillName: any): Promise<any> {
+    return { success: false };
+  }),
 };
 
 vi.mock('../../src/skills/index.js', () => ({
-  SkillsManager: vi.fn(() => mockSkillsManager),
+  SkillsManager: vi.fn(function SkillsManager() {
+    return mockSkillsManager;
+  }),
 }));
 
 // Import after mocking
