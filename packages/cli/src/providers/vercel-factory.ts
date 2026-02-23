@@ -1,5 +1,7 @@
 import type { LanguageModel } from 'ai';
 import type { CIAConfig } from '../shared/config/loader.js';
+import { createHttpClient } from '../utils/http-client';
+import type { AxiosInstance } from 'axios';
 
 type FetchFunction = typeof fetch;
 
@@ -12,6 +14,38 @@ function hasNetworkOverrides(network?: CIAConfig['network']): boolean {
   );
 }
 
+/**
+ * Creates HTTP client with network configuration
+ */
+async function createNetworkClient(network?: CIAConfig['network']): Promise<AxiosInstance> {
+  return createHttpClient(network, { timeout: 30000, retries: 3 });
+}
+
+/**
+ * Convert axios client to fetch-compatible function for AI SDK
+ */
+function axiosToFetch(client: AxiosInstance): FetchFunction {
+  return async (url: string | URL | Request, init?: RequestInit) => {
+    try {
+      const response = await client.request({
+        url: url.toString(),
+        method: init?.method || 'GET',
+        data: init?.body,
+        headers: init?.headers as Record<string, string>,
+      });
+
+      return new Response(JSON.stringify(response.data), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers as Record<string, string>,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`HTTP request failed: ${message}`);
+    }
+  };
+}
+
 async function createNetworkFetch(
   network?: CIAConfig['network']
 ): Promise<FetchFunction | undefined> {
@@ -19,44 +53,13 @@ async function createNetworkFetch(
     return undefined;
   }
 
+  // Set CA bundle if specified
   if (network['ca-bundle-path']) {
     process.env.NODE_EXTRA_CA_CERTS = network['ca-bundle-path'];
   }
 
-  const httpProxy = network['http-proxy'];
-  const httpsProxy = network['https-proxy'];
-  const noProxy = network['no-proxy']?.join(',');
-
-  if (typeof Bun !== 'undefined') {
-    const bunProxy = httpsProxy || httpProxy;
-    if (!bunProxy) {
-      return fetch;
-    }
-
-    return (url: string | URL | Request, init?: RequestInit) =>
-      fetch(
-        url as any,
-        {
-          ...init,
-          proxy: bunProxy,
-        } as RequestInit
-      );
-  }
-
-  if (httpProxy || httpsProxy || noProxy) {
-    process.env.NODE_USE_ENV_PROXY = network['use-env-proxy'] === false ? '0' : '1';
-    if (httpProxy) {
-      process.env.HTTP_PROXY = httpProxy;
-    }
-    if (httpsProxy) {
-      process.env.HTTPS_PROXY = httpsProxy;
-    }
-    if (noProxy) {
-      process.env.NO_PROXY = noProxy;
-    }
-  }
-
-  return fetch;
+  const client = await createNetworkClient(network);
+  return axiosToFetch(client);
 }
 
 /**

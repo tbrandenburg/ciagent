@@ -182,8 +182,27 @@ function validateNetworkConfig(network: NonNullable<CIAConfig['network']>): stri
     }
   }
 
-  if (network['use-env-proxy'] !== undefined && typeof network['use-env-proxy'] !== 'boolean') {
-    errors.push('Invalid network.use-env-proxy: must be a boolean.');
+  // Validate timeout and retries if present
+  if (network['timeout'] !== undefined) {
+    if (
+      typeof network['timeout'] !== 'number' ||
+      network['timeout'] < 1000 ||
+      network['timeout'] > 300000
+    ) {
+      errors.push(
+        'Invalid network.timeout: must be a number between 1000 and 300000 milliseconds.'
+      );
+    }
+  }
+
+  if (network['retries'] !== undefined) {
+    if (
+      typeof network['retries'] !== 'number' ||
+      network['retries'] < 0 ||
+      network['retries'] > 10
+    ) {
+      errors.push('Invalid network.retries: must be a number between 0 and 10.');
+    }
   }
 
   return errors;
