@@ -60,6 +60,8 @@ export class MCPManager {
 
   constructor(logLevel?: string) {
     this.logLevel = logLevel;
+    // Increase max listeners to prevent warnings during testing
+    process.setMaxListeners(20);
     // Handle cleanup on process exit
     process.on('SIGINT', () => this.cleanup());
     process.on('SIGTERM', () => this.cleanup());

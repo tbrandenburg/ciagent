@@ -3,6 +3,83 @@ import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { ChatChunk, Message } from '../src/providers/types.js';
 
+// Mock providers at top level for Vitest v4 compatibility
+vi.mock('@openai/codex-sdk', () => ({
+  Codex: class {
+    startThread(options: Record<string, unknown>) {
+      capturedCodexThreadOptions = options;
+      return {
+        id: 'codex-session-123',
+        runStreamed: async () => ({
+          events: (async function* () {
+            yield { type: 'item.completed', item: { type: 'agent_message', text: 'hello' } };
+            yield { type: 'item.completed', item: { type: 'command_execution', command: 'ls' } };
+            yield { type: 'item.completed', item: { type: 'reasoning', text: 'thinking' } };
+            yield { type: 'turn.completed' };
+          })(),
+        }),
+      };
+    }
+    resumeThread(sessionId: string, options: Record<string, unknown>) {
+      capturedCodexThreadOptions = options;
+      return {
+        id: sessionId,
+        runStreamed: async () => ({ events: (async function* () {})() }),
+      };
+    }
+  },
+}));
+
+vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  query: () =>
+    (async function* () {
+      yield {
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'text', text: 'hello from claude' },
+            { type: 'tool_use', name: 'bash' },
+          ],
+        },
+      };
+      yield { type: 'result', session_id: 'claude-session-456' };
+    })(),
+}));
+
+vi.mock('ai', () => ({
+  streamText: async ({ model, prompt }: { model: any; prompt: string }) => ({
+    textStream: (async function* () {
+      yield 'hello from ';
+      yield `vercel ${model?.providerId || 'azure'}`;
+      yield ' provider';
+    })(),
+  }),
+}));
+
+vi.mock('@ai-sdk/azure', () => ({
+  azure: (model: string) => ({
+    providerId: 'azure',
+    modelId: model,
+  }),
+  createAzure: (config: any) => {
+    return (model: string) => ({
+      providerId: 'azure',
+      modelId: model,
+      config,
+    });
+  },
+}));
+
+vi.mock('@ai-sdk/openai', () => ({
+  createOpenAI: (config: any) => {
+    return (model: string) => ({
+      providerId: 'openai',
+      modelId: model,
+      config,
+    });
+  },
+}));
+
 const ALLOWED_CHUNK_TYPES = new Set<ChatChunk['type']>([
   'assistant',
   'result',
@@ -17,88 +94,8 @@ const originalHome = process.env.HOME;
 let capturedCodexThreadOptions: Record<string, unknown> | undefined;
 
 function mockProviderSdks(): void {
+  // This function is kept for compatibility but mocks are already at top level
   capturedCodexThreadOptions = undefined;
-  vi.mock('@openai/codex-sdk', () => ({
-    Codex: class {
-      startThread(options: Record<string, unknown>) {
-        capturedCodexThreadOptions = options;
-        return {
-          id: 'codex-session-123',
-          runStreamed: async () => ({
-            events: (async function* () {
-              yield { type: 'item.completed', item: { type: 'agent_message', text: 'hello' } };
-              yield { type: 'item.completed', item: { type: 'command_execution', command: 'ls' } };
-              yield { type: 'item.completed', item: { type: 'reasoning', text: 'thinking' } };
-              yield { type: 'turn.completed' };
-            })(),
-          }),
-        };
-      }
-
-      resumeThread(sessionId: string, options: Record<string, unknown>) {
-        capturedCodexThreadOptions = options;
-        return {
-          id: sessionId,
-          runStreamed: async () => ({ events: (async function* () {})() }),
-        };
-      }
-    },
-  }));
-
-  vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
-    query: () =>
-      (async function* () {
-        yield {
-          type: 'assistant',
-          message: {
-            content: [
-              { type: 'text', text: 'hello from claude' },
-              { type: 'tool_use', name: 'bash' },
-            ],
-          },
-        };
-        yield { type: 'result', session_id: 'claude-session-456' };
-      })(),
-  }));
-
-  // Mock Vercel AI SDK with generic pattern that works for any provider
-  vi.mock('ai', () => ({
-    streamText: async ({ model, prompt }: { model: any; prompt: string }) => {
-      // Mock response format same across all Vercel providers
-      return {
-        textStream: (async function* () {
-          yield 'hello from ';
-          yield `vercel ${model?.providerId || 'azure'}`;
-          yield ' provider';
-        })(),
-      };
-    },
-  }));
-
-  // Mock Azure provider (first concrete example)
-  vi.mock('@ai-sdk/azure', () => ({
-    azure: (model: string) => ({
-      providerId: 'azure',
-      modelId: model,
-    }),
-    createAzure: (config: any) => {
-      return (model: string) => ({
-        providerId: 'azure',
-        modelId: model,
-        config,
-      });
-    },
-  }));
-
-  vi.mock('@ai-sdk/openai', () => ({
-    createOpenAI: (config: any) => {
-      return (model: string) => ({
-        providerId: 'openai',
-        modelId: model,
-        config,
-      });
-    },
-  }));
 }
 
 async function collectChunks(generator: AsyncGenerator<ChatChunk>): Promise<ChatChunk[]> {
