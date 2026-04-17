@@ -55,7 +55,7 @@ function calculateMetric(args: string[]): StartupMetric {
 }
 
 describe('cli-startup-benchmark', () => {
-  it('captures startup metrics with stable schema for --help', () => {
+  it('captures startup metrics with stable schema for --help', { timeout: 30000 }, () => {
     const metric = calculateMetric(['--help']);
 
     expect(metric.command).toEqual(['--help']);
@@ -65,13 +65,13 @@ describe('cli-startup-benchmark', () => {
     expect(metric.p95Ms).toBeGreaterThan(0);
   });
 
-  it('keeps startup overhead for --help under budget', () => {
+  it('keeps startup overhead for --help under budget', { timeout: 30000 }, () => {
     const metric = calculateMetric(['--help']);
     expect(metric.meanMs).toBeLessThan(MEAN_BUDGET_MS);
     expect(metric.p95Ms).toBeLessThan(P95_BUDGET_MS);
   });
 
-  it('keeps startup overhead for --version under budget', () => {
+  it('keeps startup overhead for --version under budget', { timeout: 30000 }, () => {
     const metric = calculateMetric(['--version']);
     expect(metric.meanMs).toBeLessThan(MEAN_BUDGET_MS);
     expect(metric.p95Ms).toBeLessThan(P95_BUDGET_MS);

@@ -7,6 +7,12 @@ describe('HTTP Client Proxy Configuration', () => {
       'http-proxy': 'http://proxy.company.com:8080',
     });
 
+    // The proxy config is now internal to axios, let's test the client exists and has the expected structure
+    expect(client).toBeDefined();
+    expect(typeof client.request).toBe('function');
+    expect(typeof client.get).toBe('function');
+
+    // Test that proxy config was applied (via the defaults.proxy property)
     expect(client.defaults.proxy).toEqual({
       host: 'proxy.company.com',
       port: 8080,

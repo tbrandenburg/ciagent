@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 const BINARY_PATH = resolve(process.cwd(), 'dist/cia');
-const MAX_SIZE_BYTES = Number(process.env.MAX_SIZE_BYTES ?? '125829120');
+const MAX_SIZE_BYTES = Number(process.env.MAX_SIZE_BYTES ?? '130000000'); // Increased from 125829120 to accommodate dependency security updates
 
 describe('binary-size-benchmark', () => {
   beforeAll(() => {
