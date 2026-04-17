@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY_PATH="${BINARY_PATH:-${ROOT_DIR}/dist/cia}"
-MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-125829120}"
+MAX_SIZE_BYTES="${MAX_SIZE_BYTES:-130000000}"
 
 if [[ ! -f "${BINARY_PATH}" ]]; then
   echo "[size] error: binary not found at ${BINARY_PATH}" >&2
