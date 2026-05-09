@@ -8,49 +8,46 @@ import { ReliableAssistantChat } from '../../src/providers/reliability.js';
 import { mcpProvider } from '../../src/providers/mcp.js';
 import { CIAConfig } from '../../src/shared/config/loader.js';
 
+// Mock provider SDKs at top level for Vitest v4 compatibility
+vi.mock('@openai/codex-sdk', () => ({
+  Codex: class {
+    startThread() {
+      return {
+        id: 'codex-session-123',
+        runStreamed: async () => ({
+          events: (async function* () {
+            yield {
+              type: 'item.completed',
+              item: { type: 'agent_message', text: 'test response' },
+            };
+            yield { type: 'turn.completed' };
+          })(),
+          abort: () => {},
+        }),
+      };
+    }
+  },
+}));
+
+vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
+  ClaudeAgent: class {
+    constructor() {}
+    async startSession() {
+      return { id: 'claude-session-123' };
+    }
+    async sendMessage() {
+      return (async function* () {
+        yield { type: 'text', text: 'test response' };
+      })();
+    }
+  },
+}));
+
 const testHome = '/tmp/cia-factory-tests';
 const originalHome = process.env.HOME;
 
-function mockProviderSdks(): void {
-  vi.mock('@openai/codex-sdk', () => ({
-    Codex: class {
-      startThread() {
-        return {
-          id: 'codex-session-123',
-          runStreamed: async () => ({
-            events: (async function* () {
-              yield {
-                type: 'item.completed',
-                item: { type: 'agent_message', text: 'test response' },
-              };
-              yield { type: 'turn.completed' };
-            })(),
-            abort: () => {},
-          }),
-        };
-      }
-    },
-  }));
-
-  vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
-    ClaudeAgent: class {
-      constructor() {}
-      async startSession() {
-        return { id: 'claude-session-123' };
-      }
-      async sendMessage() {
-        return (async function* () {
-          yield { type: 'text', text: 'test response' };
-        })();
-      }
-    },
-  }));
-}
-
 describe('Provider Factory', () => {
   beforeEach(() => {
-    mockProviderSdks();
-
     // Set up test home directory
     process.env.HOME = testHome;
     mkdirSync(testHome, { recursive: true });
